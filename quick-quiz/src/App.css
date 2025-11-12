@@ -1,0 +1,14 @@
+.App {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  text-align: center;
+}
+
+.app-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: white;
+  margin: 30px 0;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
