@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 package-lock.json
+yarn.lock
 
 # Build outputs
 build/
@@ -21,8 +22,21 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Environment variables
 .env
 .env.local
+.env.production
 
+# Firebase
+firebase-debug.log
+firestore-debug.log
+
+# Testing
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
