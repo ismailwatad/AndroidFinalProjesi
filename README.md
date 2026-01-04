@@ -2,6 +2,14 @@
 
 React Native ile geliştirilmiş profesyonel bir kişisel finans yönetim uygulaması. Kullanıcıların gelir ve giderlerini kolayca takip etmelerini, kategorilere göre analiz yapmalarını ve aylık özetler görmelerini sağlar.
 
+## Grup Üyeleri
+
+- **Öğrenci 1**: ISMAIL WATAD – 210404918
+  - Görev: Ekran tasarımı, kullanıcı arayüzü ve grafikler
+
+- **Öğrenci 2**: Muhammed Hazem Kabbanı – 220404931
+  - Görev: Veri saklama, uygulama mantığı ve finansal hesaplamalar
+
 ## Özellikler
 
 ### Temel Özellikler
@@ -14,7 +22,7 @@ React Native ile geliştirilmiş profesyonel bir kişisel finans yönetim uygula
 
 ### Raporlama
 - Toplam gelir, gider ve bakiye hesaplama
-- Kategoriye göre gider dağılımı grafikleri
+- Kategoriye göre gider dağılımı grafikleriس
 - Aylık karşılaştırma ve analiz
 
 ### Kullanıcı Arayüzü
