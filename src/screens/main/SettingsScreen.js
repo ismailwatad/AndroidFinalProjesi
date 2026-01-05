@@ -1,3 +1,8 @@
+/**
+ * Ayarlar Ekranı Bileşeni
+ * Uygulama ayarları ve kullanıcı bilgilerini gösterir
+ */
+
 import React, { useContext } from 'react';
 import {
   View,
@@ -7,14 +12,18 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { AuthContext } from '../../context/AuthContext';
+import { KimlikDogrulamaContext } from '../../context/AuthContext';
 import { colors, spacing, typography } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
-const SettingsScreen = ({ navigation }) => {
-  const { user, logout } = useContext(AuthContext);
+const AyarlarEkrani = ({ navigation }) => {
+  // Context'ten kullanıcı bilgisi ve çıkış fonksiyonunu al
+  const { kullanici, cikisYap } = useContext(KimlikDogrulamaContext);
 
-  const handleLogout = () => {
+  /**
+   * Çıkış işlemini gerçekleştiren fonksiyon
+   */
+  const cikisIsleminiYap = () => {
     Alert.alert(
       'Çıkış Yap',
       'Çıkış yapmak istediğinize emin misiniz?',
@@ -24,14 +33,15 @@ const SettingsScreen = ({ navigation }) => {
           text: 'Çıkış Yap',
           style: 'destructive',
           onPress: async () => {
-            await logout();
+            await cikisYap();
           },
         },
       ]
     );
   };
 
-  const settingsItems = [
+  // Ayarlar menü öğeleri
+  const ayarlarOgelari = [
     {
       id: 'categories',
       title: 'Kategori Yönetimi',
@@ -58,41 +68,41 @@ const SettingsScreen = ({ navigation }) => {
       id: 'logout',
       title: 'Çıkış Yap',
       icon: 'log-out-outline',
-      onPress: handleLogout,
+      onPress: cikisIsleminiYap,
       color: colors.error,
     },
   ];
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.konteyner}>
       {/* Kullanıcı Bilgisi */}
-      <View style={styles.userSection}>
+      <View style={styles.kullaniciBolumu}>
         <View style={styles.avatar}>
           <Ionicons name="person" size={32} color={colors.primary} />
         </View>
-        <Text style={styles.userName}>{user?.displayName || 'Kullanıcı'}</Text>
-        <Text style={styles.userEmail}>{user?.email}</Text>
+        <Text style={styles.kullaniciIsmi}>{kullanici?.displayName || 'Kullanıcı'}</Text>
+        <Text style={styles.kullaniciEpostasi}>{kullanici?.email}</Text>
       </View>
 
       {/* Ayarlar Listesi */}
-      <View style={styles.settingsList}>
-        {settingsItems.map((item) => (
+      <View style={styles.ayarlarListesi}>
+        {ayarlarOgelari.map((oge) => (
           <TouchableOpacity
-            key={item.id}
-            style={styles.settingItem}
-            onPress={item.onPress}
+            key={oge.id}
+            style={styles.ayarOgesi}
+            onPress={oge.onPress}
             activeOpacity={0.7}
           >
-            <View style={styles.settingLeft}>
+            <View style={styles.ayarSol}>
               <Ionicons
-                name={item.icon}
+                name={oge.icon}
                 size={24}
-                color={item.color || colors.text}
+                color={oge.color || colors.text}
               />
               <Text
-                style={[styles.settingText, item.color && { color: item.color }]}
+                style={[styles.ayarMetni, oge.color && { color: oge.color }]}
               >
-                {item.title}
+                {oge.title}
               </Text>
             </View>
             <Ionicons
@@ -108,11 +118,11 @@ const SettingsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  konteyner: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  userSection: {
+  kullaniciBolumu: {
     backgroundColor: colors.surface,
     padding: spacing.lg,
     alignItems: 'center',
@@ -127,19 +137,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  userName: {
+  kullaniciIsmi: {
     ...typography.h3,
     color: colors.text,
     marginBottom: spacing.xs,
   },
-  userEmail: {
+  kullaniciEpostasi: {
     ...typography.bodySmall,
     color: colors.textSecondary,
   },
-  settingsList: {
+  ayarlarListesi: {
     backgroundColor: colors.surface,
   },
-  settingItem: {
+  ayarOgesi: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -147,16 +157,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  settingLeft: {
+  ayarSol: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  settingText: {
+  ayarMetni: {
     ...typography.body,
     marginLeft: spacing.md,
     color: colors.text,
   },
 });
 
-export default SettingsScreen;
+export default AyarlarEkrani;

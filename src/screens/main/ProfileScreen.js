@@ -1,3 +1,8 @@
+/**
+ * Profil Ekranı Bileşeni
+ * Kullanıcı profil bilgilerini düzenleme ve şifre değiştirme ekranı
+ */
+
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -11,194 +16,203 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { AuthContext } from '../../context/AuthContext';
-import { authService } from '../../services/authService';
+import { KimlikDogrulamaContext } from '../../context/AuthContext';
+import { kimlikDogrulamaServisi } from '../../services/authService';
 import { colors, spacing, typography } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
-const ProfileScreen = ({ navigation }) => {
-  const { user, setUser } = useContext(AuthContext);
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [email] = useState(user?.email || '');
+const ProfilEkrani = ({ navigation }) => {
+  // Context'ten kullanıcı bilgisi ve güncelleme fonksiyonunu al
+  const { kullanici, setKullanici } = useContext(KimlikDogrulamaContext);
+  
+  // Form state'leri
+  const [gorunenIsim, setGorunenIsim] = useState(kullanici?.displayName || '');
+  const [eposta] = useState(kullanici?.email || '');
   
   // Şifre değiştirme state'leri
-  const [showPasswordChange, setShowPasswordChange] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [sifreDegistirmeGoster, setSifreDegistirmeGoster] = useState(false);
+  const [mevcutSifre, setMevcutSifre] = useState('');
+  const [yeniSifre, setYeniSifre] = useState('');
+  const [sifreTekrar, setSifreTekrar] = useState('');
   
-  const [loading, setLoading] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [yukleniyor, setYukleniyor] = useState(false);
+  const [sifreYukleniyor, setSifreYukleniyor] = useState(false);
 
-  const handleUpdateProfile = async () => {
-    if (!displayName.trim()) {
+  /**
+   * Profil bilgilerini güncelleyen fonksiyon
+   */
+  const profiliGuncelle = async () => {
+    if (!gorunenIsim.trim()) {
       Alert.alert('Hata', 'Lütfen bir isim girin');
       return;
     }
 
-    setLoading(true);
-    const result = await authService.updateProfile(user.id, {
-      displayName: displayName.trim(),
+    setYukleniyor(true);
+    const sonuc = await kimlikDogrulamaServisi.profiliGuncelle(kullanici.id, {
+      displayName: gorunenIsim.trim(),
     });
-    setLoading(false);
+    setYukleniyor(false);
 
-    if (result.success) {
-      setUser(result.user);
+    if (sonuc.success) {
+      setKullanici(sonuc.user);
       Alert.alert('Başarılı', 'Profil bilgileri güncellendi');
     } else {
-      Alert.alert('Hata', result.error || 'Profil güncellenemedi');
+      Alert.alert('Hata', sonuc.error || 'Profil güncellenemedi');
     }
   };
 
-  const handleChangePassword = async () => {
-    if (!currentPassword || !newPassword || !confirmPassword) {
+  /**
+   * Şifreyi değiştiren fonksiyon
+   */
+  const sifreyiDegistir = async () => {
+    if (!mevcutSifre || !yeniSifre || !sifreTekrar) {
       Alert.alert('Hata', 'Lütfen tüm alanları doldurun');
       return;
     }
 
-    if (newPassword !== confirmPassword) {
+    if (yeniSifre !== sifreTekrar) {
       Alert.alert('Hata', 'Yeni şifreler eşleşmiyor');
       return;
     }
 
-    if (newPassword.length < 6) {
+    if (yeniSifre.length < 6) {
       Alert.alert('Hata', 'Yeni şifre en az 6 karakter olmalıdır');
       return;
     }
 
-    setPasswordLoading(true);
-    const result = await authService.changePassword(
-      user.id,
-      currentPassword,
-      newPassword
+    setSifreYukleniyor(true);
+    const sonuc = await kimlikDogrulamaServisi.sifreDegistir(
+      kullanici.id,
+      mevcutSifre,
+      yeniSifre
     );
-    setPasswordLoading(false);
+    setSifreYukleniyor(false);
 
-    if (result.success) {
+    if (sonuc.success) {
       Alert.alert('Başarılı', 'Şifre başarıyla değiştirildi', [
         {
           text: 'Tamam',
           onPress: () => {
-            setShowPasswordChange(false);
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
+            setSifreDegistirmeGoster(false);
+            setMevcutSifre('');
+            setYeniSifre('');
+            setSifreTekrar('');
           },
         },
       ]);
     } else {
-      Alert.alert('Hata', result.error || 'Şifre değiştirilemedi');
+      Alert.alert('Hata', sonuc.error || 'Şifre değiştirilemedi');
     }
   };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={styles.konteyner}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        style={styles.konteyner}
+        contentContainerStyle={styles.kaydirmaIcerik}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.content}>
+        <View style={styles.icerik}>
         {/* Avatar Bölümü */}
-        <View style={styles.avatarSection}>
+        <View style={styles.avatarBolumu}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={48} color={colors.primary} />
           </View>
-          <Text style={styles.avatarText}>{displayName || 'Kullanıcı'}</Text>
+          <Text style={styles.avatarMetni}>{gorunenIsim || 'Kullanıcı'}</Text>
         </View>
 
         {/* Profil Bilgileri */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Profil Bilgileri</Text>
+        <View style={styles.bolum}>
+          <Text style={styles.bolumBasligi}>Profil Bilgileri</Text>
           
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Ad Soyad</Text>
+          <View style={styles.girdiGrubu}>
+            <Text style={styles.etiket}>Ad Soyad</Text>
             <TextInput
-              style={styles.input}
+              style={styles.girdi}
               placeholder="Ad Soyad"
-              value={displayName}
-              onChangeText={setDisplayName}
+              value={gorunenIsim}
+              onChangeText={setGorunenIsim}
               autoCapitalize="words"
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>E-posta</Text>
+          <View style={styles.girdiGrubu}>
+            <Text style={styles.etiket}>E-posta</Text>
             <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={email}
+              style={[styles.girdi, styles.girdiDevreDisi]}
+              value={eposta}
               editable={false}
             />
-            <Text style={styles.hint}>E-posta adresi değiştirilemez</Text>
+            <Text style={styles.ipucu}>E-posta adresi değiştirilemez</Text>
           </View>
 
           <TouchableOpacity
-            style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-            onPress={handleUpdateProfile}
-            disabled={loading}
+            style={[styles.kaydetButonu, yukleniyor && styles.kaydetButonuDevreDisi]}
+            onPress={profiliGuncelle}
+            disabled={yukleniyor}
           >
-            {loading ? (
+            {yukleniyor ? (
               <ActivityIndicator color={colors.surface} />
             ) : (
-              <Text style={styles.saveButtonText}>Kaydet</Text>
+              <Text style={styles.kaydetButonuMetni}>Kaydet</Text>
             )}
           </TouchableOpacity>
         </View>
 
         {/* Şifre Değiştirme Bölümü */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Şifre Değiştir</Text>
+        <View style={styles.bolum}>
+          <View style={styles.bolumBaslikAlani}>
+            <Text style={styles.bolumBasligi}>Şifre Değiştir</Text>
             <TouchableOpacity
-              onPress={() => setShowPasswordChange(!showPasswordChange)}
-              style={styles.toggleButton}
+              onPress={() => setSifreDegistirmeGoster(!sifreDegistirmeGoster)}
+              style={styles.acKapaButonu}
             >
               <Ionicons
-                name={showPasswordChange ? 'chevron-up' : 'chevron-down'}
+                name={sifreDegistirmeGoster ? 'chevron-up' : 'chevron-down'}
                 size={24}
                 color={colors.primary}
               />
             </TouchableOpacity>
           </View>
 
-          {showPasswordChange && (
-            <View style={styles.passwordSection}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Mevcut Şifre</Text>
+          {sifreDegistirmeGoster && (
+            <View style={styles.sifreBolumu}>
+              <View style={styles.girdiGrubu}>
+                <Text style={styles.etiket}>Mevcut Şifre</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.girdi}
                   placeholder="Mevcut şifrenizi girin"
-                  value={currentPassword}
-                  onChangeText={setCurrentPassword}
+                  value={mevcutSifre}
+                  onChangeText={setMevcutSifre}
                   secureTextEntry
                   autoCapitalize="none"
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Yeni Şifre</Text>
+              <View style={styles.girdiGrubu}>
+                <Text style={styles.etiket}>Yeni Şifre</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.girdi}
                   placeholder="Yeni şifrenizi girin"
-                  value={newPassword}
-                  onChangeText={setNewPassword}
+                  value={yeniSifre}
+                  onChangeText={setYeniSifre}
                   secureTextEntry
                   autoCapitalize="none"
                 />
-                <Text style={styles.hint}>En az 6 karakter</Text>
+                <Text style={styles.ipucu}>En az 6 karakter</Text>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Yeni Şifre Tekrar</Text>
+              <View style={styles.girdiGrubu}>
+                <Text style={styles.etiket}>Yeni Şifre Tekrar</Text>
                 <TextInput
-                  style={styles.input}
+                  style={styles.girdi}
                   placeholder="Yeni şifrenizi tekrar girin"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
+                  value={sifreTekrar}
+                  onChangeText={setSifreTekrar}
                   secureTextEntry
                   autoCapitalize="none"
                 />
@@ -206,17 +220,17 @@ const ProfileScreen = ({ navigation }) => {
 
               <TouchableOpacity
                 style={[
-                  styles.saveButton,
-                  styles.passwordButton,
-                  passwordLoading && styles.saveButtonDisabled,
+                  styles.kaydetButonu,
+                  styles.sifreButonu,
+                  sifreYukleniyor && styles.kaydetButonuDevreDisi,
                 ]}
-                onPress={handleChangePassword}
-                disabled={passwordLoading}
+                onPress={sifreyiDegistir}
+                disabled={sifreYukleniyor}
               >
-                {passwordLoading ? (
+                {sifreYukleniyor ? (
                   <ActivityIndicator color={colors.surface} />
                 ) : (
-                  <Text style={styles.saveButtonText}>Şifreyi Değiştir</Text>
+                  <Text style={styles.kaydetButonuMetni}>Şifreyi Değiştir</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -224,13 +238,13 @@ const ProfileScreen = ({ navigation }) => {
         </View>
 
         {/* Hesap Bilgileri */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Hesap Bilgileri</Text>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Hesap Oluşturulma Tarihi</Text>
-            <Text style={styles.infoValue}>
-              {user?.createdAt
-                ? new Date(user.createdAt).toLocaleDateString('tr-TR', {
+        <View style={styles.bolum}>
+          <Text style={styles.bolumBasligi}>Hesap Bilgileri</Text>
+          <View style={styles.bilgiSatiri}>
+            <Text style={styles.bilgiEtiketi}>Hesap Oluşturulma Tarihi</Text>
+            <Text style={styles.bilgiDegeri}>
+              {kullanici?.createdAt
+                ? new Date(kullanici.createdAt).toLocaleDateString('tr-TR', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
@@ -246,17 +260,17 @@ const ProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  konteyner: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollContent: {
+  kaydirmaIcerik: {
     flexGrow: 1,
   },
-  content: {
+  icerik: {
     padding: spacing.lg,
   },
-  avatarSection: {
+  avatarBolumu: {
     alignItems: 'center',
     marginBottom: spacing.xl,
     paddingVertical: spacing.lg,
@@ -270,39 +284,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  avatarText: {
+  avatarMetni: {
     ...typography.h3,
     color: colors.text,
   },
-  section: {
+  bolum: {
     backgroundColor: colors.surface,
     borderRadius: 12,
     padding: spacing.lg,
     marginBottom: spacing.md,
   },
-  sectionHeader: {
+  bolumBaslikAlani: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  sectionTitle: {
+  bolumBasligi: {
     ...typography.h3,
     color: colors.text,
     marginBottom: spacing.md,
   },
-  toggleButton: {
+  acKapaButonu: {
     padding: spacing.xs,
   },
-  inputGroup: {
+  girdiGrubu: {
     marginBottom: spacing.md,
   },
-  label: {
+  etiket: {
     ...typography.bodySmall,
     fontWeight: '600',
     color: colors.text,
     marginBottom: spacing.xs,
   },
-  input: {
+  girdi: {
     backgroundColor: colors.background,
     borderRadius: 8,
     padding: spacing.md,
@@ -311,37 +325,37 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     color: colors.text,
   },
-  inputDisabled: {
+  girdiDevreDisi: {
     backgroundColor: colors.border + '30',
     color: colors.textSecondary,
   },
-  hint: {
+  ipucu: {
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
-  saveButton: {
+  kaydetButonu: {
     backgroundColor: colors.primary,
     borderRadius: 8,
     padding: spacing.md,
     alignItems: 'center',
     marginTop: spacing.sm,
   },
-  passwordButton: {
+  sifreButonu: {
     backgroundColor: colors.secondary,
   },
-  saveButtonDisabled: {
+  kaydetButonuDevreDisi: {
     opacity: 0.6,
   },
-  saveButtonText: {
+  kaydetButonuMetni: {
     color: colors.surface,
     ...typography.body,
     fontWeight: '600',
   },
-  passwordSection: {
+  sifreBolumu: {
     marginTop: spacing.md,
   },
-  infoRow: {
+  bilgiSatiri: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -349,16 +363,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  infoLabel: {
+  bilgiEtiketi: {
     ...typography.body,
     color: colors.textLight,
     flex: 1,
   },
-  infoValue: {
+  bilgiDegeri: {
     ...typography.body,
     color: colors.text,
     fontWeight: '600',
   },
 });
 
-export default ProfileScreen;
+export default ProfilEkrani;

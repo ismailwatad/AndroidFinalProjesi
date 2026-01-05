@@ -1,3 +1,8 @@
+/**
+ * İşlem Ekleme/Düzenleme Ekranı Bileşeni
+ * Yeni işlem ekleme veya mevcut işlemi düzenleme formu
+ */
+
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -14,105 +19,124 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
-import { AuthContext } from '../../context/AuthContext';
-import { transactionService } from '../../services/transactionService';
-import { categoryService } from '../../services/categoryService';
-import CategoryCard from '../../components/CategoryCard';
+import { KimlikDogrulamaContext } from '../../context/AuthContext';
+import { islemServisi } from '../../services/transactionService';
+import { kategoriServisi } from '../../services/categoryService';
+import KategoriKarti from '../../components/CategoryCard';
 import { colors, spacing, typography } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { parseISO } from 'date-fns';
 
-const AddTransactionScreen = ({ route, navigation }) => {
-  const { user } = useContext(AuthContext);
-  const editingTransaction = route?.params?.transaction;
+const IslemEkleEkrani = ({ route, navigation }) => {
+  // Context'ten kullanıcı bilgisini al
+  const { kullanici } = useContext(KimlikDogrulamaContext);
+  // Düzenlenen işlem bilgisi (varsa)
+  const duzenlenenIslem = route?.params?.transaction;
 
-  // Tarih nesnesini doğru şekilde parse et
-  const getInitialDate = () => {
-    if (editingTransaction?.date) {
-      if (editingTransaction.date instanceof Date) {
-        return editingTransaction.date;
-      } else if (typeof editingTransaction.date === 'string') {
-        return parseISO(editingTransaction.date);
+  /**
+   * Başlangıç tarihini belirleyen fonksiyon
+   * Düzenleme modunda tarihi parse eder
+   * @returns {Date} Başlangıç tarihi
+   */
+  const baslangicTarihiniAl = () => {
+    if (duzenlenenIslem?.date) {
+      if (duzenlenenIslem.date instanceof Date) {
+        return duzenlenenIslem.date;
+      } else if (typeof duzenlenenIslem.date === 'string') {
+        return parseISO(duzenlenenIslem.date);
       }
     }
     return new Date();
   };
 
-  const [type, setType] = useState(editingTransaction?.type || 'expense');
-  const [amount, setAmount] = useState(editingTransaction?.amount?.toString() || '');
-  const [date, setDate] = useState(getInitialDate());
-  const [category, setCategory] = useState(editingTransaction?.category || null);
-  const [categories, setCategories] = useState([]);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Form state'leri
+  const [tip, setTip] = useState(duzenlenenIslem?.type || 'expense');
+  const [tutar, setTutar] = useState(duzenlenenIslem?.amount?.toString() || '');
+  const [tarih, setTarih] = useState(baslangicTarihiniAl());
+  const [kategori, setKategori] = useState(duzenlenenIslem?.category || null);
+  const [kategoriler, setKategoriler] = useState([]);
+  const [tarihSeciciGoster, setTarihSeciciGoster] = useState(false);
+  const [yukleniyor, setYukleniyor] = useState(false);
   
   // Boş değerlere izin vermek için tarih giriş state'leri
-  const [dayInput, setDayInput] = useState('');
-  const [monthInput, setMonthInput] = useState('');
-  const [yearInput, setYearInput] = useState('');
+  const [gunGirisi, setGunGirisi] = useState('');
+  const [ayGirisi, setAyGirisi] = useState('');
+  const [yilGirisi, setYilGirisi] = useState('');
 
+  /**
+   * Kategorileri yükleyen fonksiyon
+   */
   useEffect(() => {
-    loadCategories();
+    kategorileriYukle();
   }, []);
 
-  // Tarih seçici açıldığında tarih girişlerini başlat
+  /**
+   * Tarih seçici açıldığında tarih girişlerini başlatır
+   */
   useEffect(() => {
-    if (showDatePicker) {
-      setDayInput(date.getDate().toString());
-      setMonthInput((date.getMonth() + 1).toString());
-      setYearInput(date.getFullYear().toString());
+    if (tarihSeciciGoster) {
+      setGunGirisi(tarih.getDate().toString());
+      setAyGirisi((tarih.getMonth() + 1).toString());
+      setYilGirisi(tarih.getFullYear().toString());
     }
-  }, [showDatePicker, date]);
+  }, [tarihSeciciGoster, tarih]);
 
-  const loadCategories = async () => {
-    if (!user) return;
-    const result = await categoryService.getUserCategories(user.id);
-    if (result.success) {
-      setCategories(result.categories);
-      if (!category && result.categories.length > 0 && type === 'expense') {
-        setCategory(result.categories[0].id);
+  /**
+   * Kategorileri yükleyen fonksiyon
+   */
+  const kategorileriYukle = async () => {
+    if (!kullanici) return;
+    const sonuc = await kategoriServisi.kullanicininKategorileriniGetir(kullanici.id);
+    if (sonuc.success) {
+      setKategoriler(sonuc.categories);
+      if (!kategori && sonuc.categories.length > 0 && tip === 'expense') {
+        setKategori(sonuc.categories[0].id);
       }
     }
   };
 
-  const handleSave = async () => {
-    if (!amount || parseFloat(amount) <= 0) {
+  /**
+   * İşlemi kaydeden fonksiyon
+   * Yeni işlem ekler veya mevcut işlemi günceller
+   */
+  const kaydet = async () => {
+    if (!tutar || parseFloat(tutar) <= 0) {
       Alert.alert('Hata', 'Lütfen geçerli bir tutar girin');
       return;
     }
 
-    if (type === 'expense' && !category) {
+    if (tip === 'expense' && !kategori) {
       Alert.alert('Hata', 'Lütfen bir kategori seçin');
       return;
     }
 
-    setLoading(true);
+    setYukleniyor(true);
 
-    const transactionData = {
-      type,
-      amount: parseFloat(amount),
-      date: date,
-      category: type === 'expense' ? category : null,
+    const islemVerisi = {
+      type: tip,
+      amount: parseFloat(tutar),
+      date: tarih,
+      category: tip === 'expense' ? kategori : null,
     };
 
-    let result;
-    if (editingTransaction) {
-      result = await transactionService.updateTransaction(
-        editingTransaction.id,
-        transactionData
+    let sonuc;
+    if (duzenlenenIslem) {
+      sonuc = await islemServisi.islemGuncelle(
+        duzenlenenIslem.id,
+        islemVerisi
       );
     } else {
-      result = await transactionService.addTransaction(user.id, transactionData);
+      sonuc = await islemServisi.islemEkle(kullanici.id, islemVerisi);
     }
 
-    setLoading(false);
+    setYukleniyor(false);
 
-    if (result.success) {
-      Alert.alert('Başarılı', editingTransaction ? 'İşlem güncellendi' : 'İşlem eklendi', [
+    if (sonuc.success) {
+      Alert.alert('Başarılı', duzenlenenIslem ? 'İşlem güncellendi' : 'İşlem eklendi', [
         { text: 'Tamam', onPress: () => navigation.goBack() },
       ]);
     } else {
-      Alert.alert('Hata', result.error || 'İşlem kaydedilemedi');
+      Alert.alert('Hata', sonuc.error || 'İşlem kaydedilemedi');
     }
   };
 
@@ -126,23 +150,23 @@ const AddTransactionScreen = ({ route, navigation }) => {
             <TouchableOpacity
               style={[
                 styles.typeButton,
-                type === 'income' && styles.typeButtonActive,
-                { backgroundColor: type === 'income' ? colors.success : colors.surface },
+                tip === 'income' && styles.typeButtonActive,
+                { backgroundColor: tip === 'income' ? colors.success : colors.surface },
               ]}
               onPress={() => {
-                setType('income');
-                setCategory(null);
+                setTip('income');
+                setKategori(null);
               }}
             >
               <Ionicons
                 name="arrow-down-circle"
                 size={24}
-                color={type === 'income' ? colors.surface : colors.success}
+                color={tip === 'income' ? colors.surface : colors.success}
               />
               <Text
                 style={[
                   styles.typeButtonText,
-                  { color: type === 'income' ? colors.surface : colors.success },
+                  { color: tip === 'income' ? colors.surface : colors.success },
                 ]}
               >
                 Gelir
@@ -152,20 +176,20 @@ const AddTransactionScreen = ({ route, navigation }) => {
             <TouchableOpacity
               style={[
                 styles.typeButton,
-                type === 'expense' && styles.typeButtonActive,
-                { backgroundColor: type === 'expense' ? colors.error : colors.surface },
+                tip === 'expense' && styles.typeButtonActive,
+                { backgroundColor: tip === 'expense' ? colors.error : colors.surface },
               ]}
-              onPress={() => setType('expense')}
+              onPress={() => setTip('expense')}
             >
               <Ionicons
                 name="arrow-up-circle"
                 size={24}
-                color={type === 'expense' ? colors.surface : colors.error}
+                color={tip === 'expense' ? colors.surface : colors.error}
               />
               <Text
                 style={[
                   styles.typeButtonText,
-                  { color: type === 'expense' ? colors.surface : colors.error },
+                  { color: tip === 'expense' ? colors.surface : colors.error },
                 ]}
               >
                 Gider
@@ -180,8 +204,8 @@ const AddTransactionScreen = ({ route, navigation }) => {
           <TextInput
             style={styles.input}
             placeholder="0.00"
-            value={amount}
-            onChangeText={setAmount}
+            value={tutar}
+            onChangeText={setTutar}
             keyboardType="decimal-pad"
           />
         </View>
@@ -191,11 +215,11 @@ const AddTransactionScreen = ({ route, navigation }) => {
           <Text style={styles.label}>Tarih</Text>
           <TouchableOpacity
             style={styles.dateButton}
-            onPress={() => setShowDatePicker(true)}
+            onPress={() => setTarihSeciciGoster(true)}
           >
             <Ionicons name="calendar-outline" size={20} color={colors.text} />
             <Text style={styles.dateText}>
-              {date.toLocaleDateString('tr-TR', {
+              {tarih.toLocaleDateString('tr-TR', {
                 day: '2-digit',
                 month: 'long',
                 year: 'numeric',
@@ -205,17 +229,17 @@ const AddTransactionScreen = ({ route, navigation }) => {
         </View>
 
         {/* Kategori Seçimi (Sadece Gider için) */}
-        {type === 'expense' && (
+        {tip === 'expense' && (
           <View style={styles.section}>
             <Text style={styles.label}>Kategori</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.categoriesContainer}>
-                {categories.map((cat) => (
-                  <CategoryCard
-                    key={cat.id}
-                    category={cat}
-                    selected={category === cat.id}
-                    onPress={() => setCategory(cat.id)}
+                {kategoriler.map((kat) => (
+                  <KategoriKarti
+                    key={kat.id}
+                    kategori={kat}
+                    secili={kategori === kat.id}
+                    tiklandiginda={() => setKategori(kat.id)}
                   />
                 ))}
               </View>
@@ -225,25 +249,25 @@ const AddTransactionScreen = ({ route, navigation }) => {
 
         {/* Kaydet Butonu */}
         <TouchableOpacity
-          style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={loading}
+          style={[styles.saveButton, yukleniyor && styles.saveButtonDisabled]}
+          onPress={kaydet}
+          disabled={yukleniyor}
         >
-          {loading ? (
+          {yukleniyor ? (
             <ActivityIndicator color={colors.surface} />
           ) : (
             <Text style={styles.saveButtonText}>
-              {editingTransaction ? 'Güncelle' : 'Kaydet'}
+              {duzenlenenIslem ? 'Güncelle' : 'Kaydet'}
             </Text>
           )}
         </TouchableOpacity>
       </View>
 
       <Modal
-        visible={showDatePicker}
+        visible={tarihSeciciGoster}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowDatePicker(false)}
+        onRequestClose={() => setTarihSeciciGoster(false)}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <KeyboardAvoidingView
@@ -257,7 +281,7 @@ const AddTransactionScreen = ({ route, navigation }) => {
                   <TouchableOpacity
                     onPress={() => {
                       Keyboard.dismiss();
-                      setShowDatePicker(false);
+                      setTarihSeciciGoster(false);
                     }}
                     style={styles.modalButton}
                   >
@@ -267,19 +291,19 @@ const AddTransactionScreen = ({ route, navigation }) => {
                   <TouchableOpacity
                     onPress={() => {
                       // Kapatmadan önce tarihi doğrula ve güncelle
-                      const day = dayInput ? parseInt(dayInput) : date.getDate();
-                      const month = monthInput ? parseInt(monthInput) : date.getMonth() + 1;
-                      const year = yearInput ? parseInt(yearInput) : date.getFullYear();
+                      const gun = gunGirisi ? parseInt(gunGirisi) : tarih.getDate();
+                      const ay = ayGirisi ? parseInt(ayGirisi) : tarih.getMonth() + 1;
+                      const yil = yilGirisi ? parseInt(yilGirisi) : tarih.getFullYear();
                       
-                      if (!isNaN(day) && day >= 1 && day <= 31 &&
-                          !isNaN(month) && month >= 1 && month <= 12 &&
-                          !isNaN(year) && year >= 1900 && year <= 2100) {
-                        const newDate = new Date(year, month - 1, day);
-                        setDate(newDate);
+                      if (!isNaN(gun) && gun >= 1 && gun <= 31 &&
+                          !isNaN(ay) && ay >= 1 && ay <= 12 &&
+                          !isNaN(yil) && yil >= 1900 && yil <= 2100) {
+                        const yeniTarih = new Date(yil, ay - 1, gun);
+                        setTarih(yeniTarih);
                       }
                       
                       Keyboard.dismiss();
-                      setShowDatePicker(false);
+                      setTarihSeciciGoster(false);
                     }}
                     style={styles.modalButton}
                   >
@@ -293,19 +317,19 @@ const AddTransactionScreen = ({ route, navigation }) => {
                     <Text style={styles.dateInputLabel}>Gün</Text>
                     <TextInput
                       style={styles.dateInput}
-                      value={dayInput}
+                      value={gunGirisi}
                       keyboardType="numeric"
                       maxLength={2}
                       placeholder="Gün"
                       placeholderTextColor={colors.textSecondary}
-                      onChangeText={(text) => {
-                        setDayInput(text);
-                        if (text !== '') {
-                          const day = parseInt(text);
-                          if (!isNaN(day) && day >= 1 && day <= 31) {
-                            const newDate = new Date(date);
-                            newDate.setDate(day);
-                            setDate(newDate);
+                      onChangeText={(metin) => {
+                        setGunGirisi(metin);
+                        if (metin !== '') {
+                          const gun = parseInt(metin);
+                          if (!isNaN(gun) && gun >= 1 && gun <= 31) {
+                            const yeniTarih = new Date(tarih);
+                            yeniTarih.setDate(gun);
+                            setTarih(yeniTarih);
                           }
                         }
                       }}
@@ -315,19 +339,19 @@ const AddTransactionScreen = ({ route, navigation }) => {
                     <Text style={styles.dateInputLabel}>Ay</Text>
                     <TextInput
                       style={styles.dateInput}
-                      value={monthInput}
+                      value={ayGirisi}
                       keyboardType="numeric"
                       maxLength={2}
                       placeholder="Ay"
                       placeholderTextColor={colors.textSecondary}
-                      onChangeText={(text) => {
-                        setMonthInput(text);
-                        if (text !== '') {
-                          const month = parseInt(text);
-                          if (!isNaN(month) && month >= 1 && month <= 12) {
-                            const newDate = new Date(date);
-                            newDate.setMonth(month - 1);
-                            setDate(newDate);
+                      onChangeText={(metin) => {
+                        setAyGirisi(metin);
+                        if (metin !== '') {
+                          const ay = parseInt(metin);
+                          if (!isNaN(ay) && ay >= 1 && ay <= 12) {
+                            const yeniTarih = new Date(tarih);
+                            yeniTarih.setMonth(ay - 1);
+                            setTarih(yeniTarih);
                           }
                         }
                       }}
@@ -337,19 +361,19 @@ const AddTransactionScreen = ({ route, navigation }) => {
                     <Text style={styles.dateInputLabel}>Yıl</Text>
                     <TextInput
                       style={styles.dateInput}
-                      value={yearInput}
+                      value={yilGirisi}
                       keyboardType="numeric"
                       maxLength={4}
                       placeholder="Yıl"
                       placeholderTextColor={colors.textSecondary}
-                      onChangeText={(text) => {
-                        setYearInput(text);
-                        if (text !== '') {
-                          const year = parseInt(text);
-                          if (!isNaN(year) && year >= 1900 && year <= 2100) {
-                            const newDate = new Date(date);
-                            newDate.setFullYear(year);
-                            setDate(newDate);
+                      onChangeText={(metin) => {
+                        setYilGirisi(metin);
+                        if (metin !== '') {
+                          const yil = parseInt(metin);
+                          if (!isNaN(yil) && yil >= 1900 && yil <= 2100) {
+                            const yeniTarih = new Date(tarih);
+                            yeniTarih.setFullYear(yil);
+                            setTarih(yeniTarih);
                           }
                         }
                       }}
@@ -510,4 +534,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AddTransactionScreen;
+export default IslemEkleEkrani;

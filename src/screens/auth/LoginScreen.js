@@ -1,3 +1,8 @@
+/**
+ * Giriş Ekranı Bileşeni
+ * Kullanıcı girişi için form ekranı
+ */
+
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -10,27 +15,33 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { AuthContext } from '../../context/AuthContext';
+import { KimlikDogrulamaContext } from '../../context/AuthContext';
 import { colors, spacing, typography } from '../../constants/theme';
 
-const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useContext(AuthContext);
+const GirisEkrani = ({ navigation }) => {
+  // Form state'leri
+  const [eposta, setEposta] = useState('');
+  const [sifre, setSifre] = useState('');
+  const [yukleniyor, setYukleniyor] = useState(false);
+  
+  // Context'ten giriş fonksiyonunu al
+  const { girisYap } = useContext(KimlikDogrulamaContext);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
+  /**
+   * Giriş işlemini gerçekleştiren fonksiyon
+   */
+  const girisIsleminiYap = async () => {
+    if (!eposta || !sifre) {
       Alert.alert('Hata', 'Lütfen tüm alanları doldurun');
       return;
     }
 
-    setLoading(true);
-    const result = await login(email, password);
-    setLoading(false);
+    setYukleniyor(true);
+    const sonuc = await girisYap(eposta, sifre);
+    setYukleniyor(false);
 
-    if (!result.success) {
-      Alert.alert('Giriş Hatası', result.error || 'Giriş yapılamadı');
+    if (!sonuc.success) {
+      Alert.alert('Giriş Hatası', sonuc.error || 'Giriş yapılamadı');
     }
   };
 
@@ -48,8 +59,8 @@ const LoginScreen = ({ navigation }) => {
             style={styles.input}
             placeholder="E-posta"
             placeholderTextColor={colors.textSecondary}
-            value={email}
-            onChangeText={setEmail}
+            value={eposta}
+            onChangeText={setEposta}
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
@@ -59,18 +70,18 @@ const LoginScreen = ({ navigation }) => {
             style={styles.input}
             placeholder="Şifre"
             placeholderTextColor={colors.textSecondary}
-            value={password}
-            onChangeText={setPassword}
+            value={sifre}
+            onChangeText={setSifre}
             secureTextEntry
             autoCapitalize="none"
           />
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
+            style={[styles.button, yukleniyor && styles.buttonDisabled]}
+            onPress={girisIsleminiYap}
+            disabled={yukleniyor}
           >
-            {loading ? (
+            {yukleniyor ? (
               <ActivityIndicator color={colors.surface} />
             ) : (
               <Text style={styles.buttonText}>Giriş Yap</Text>
@@ -150,4 +161,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LoginScreen;
+export default GirisEkrani;

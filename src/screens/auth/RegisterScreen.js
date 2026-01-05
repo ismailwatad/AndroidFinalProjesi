@@ -1,3 +1,8 @@
+/**
+ * Kayıt Ekranı Bileşeni
+ * Yeni kullanıcı kaydı için form ekranı
+ */
+
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -11,39 +16,45 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { AuthContext } from '../../context/AuthContext';
+import { KimlikDogrulamaContext } from '../../context/AuthContext';
 import { colors, spacing, typography } from '../../constants/theme';
 
-const RegisterScreen = ({ navigation }) => {
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { register } = useContext(AuthContext);
+const KayitEkrani = ({ navigation }) => {
+  // Form state'leri
+  const [gorunenIsim, setGorunenIsim] = useState('');
+  const [eposta, setEposta] = useState('');
+  const [sifre, setSifre] = useState('');
+  const [sifreTekrar, setSifreTekrar] = useState('');
+  const [yukleniyor, setYukleniyor] = useState(false);
+  
+  // Context'ten kayıt fonksiyonunu al
+  const { kayitOl } = useContext(KimlikDogrulamaContext);
 
-  const handleRegister = async () => {
-    if (!displayName || !email || !password || !confirmPassword) {
+  /**
+   * Kayıt işlemini gerçekleştiren fonksiyon
+   */
+  const kayitIsleminiYap = async () => {
+    if (!gorunenIsim || !eposta || !sifre || !sifreTekrar) {
       Alert.alert('Hata', 'Lütfen tüm alanları doldurun');
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (sifre !== sifreTekrar) {
       Alert.alert('Hata', 'Şifreler eşleşmiyor');
       return;
     }
 
-    if (password.length < 6) {
+    if (sifre.length < 6) {
       Alert.alert('Hata', 'Şifre en az 6 karakter olmalıdır');
       return;
     }
 
-    setLoading(true);
-    const result = await register(email, password, displayName);
-    setLoading(false);
+    setYukleniyor(true);
+    const sonuc = await kayitOl(eposta, sifre, gorunenIsim);
+    setYukleniyor(false);
 
-    if (!result.success) {
-      Alert.alert('Kayıt Hatası', result.error || 'Kayıt yapılamadı');
+    if (!sonuc.success) {
+      Alert.alert('Kayıt Hatası', sonuc.error || 'Kayıt yapılamadı');
     }
   };
 
@@ -61,8 +72,8 @@ const RegisterScreen = ({ navigation }) => {
               style={styles.input}
               placeholder="Ad Soyad"
               placeholderTextColor={colors.textSecondary}
-              value={displayName}
-              onChangeText={setDisplayName}
+              value={gorunenIsim}
+              onChangeText={setGorunenIsim}
               autoCapitalize="words"
             />
 
@@ -70,8 +81,8 @@ const RegisterScreen = ({ navigation }) => {
               style={styles.input}
               placeholder="E-posta"
               placeholderTextColor={colors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
+              value={eposta}
+              onChangeText={setEposta}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -81,8 +92,8 @@ const RegisterScreen = ({ navigation }) => {
               style={styles.input}
               placeholder="Şifre"
               placeholderTextColor={colors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
+              value={sifre}
+              onChangeText={setSifre}
               secureTextEntry
               autoCapitalize="none"
             />
@@ -91,18 +102,18 @@ const RegisterScreen = ({ navigation }) => {
               style={styles.input}
               placeholder="Şifre Tekrar"
               placeholderTextColor={colors.textSecondary}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              value={sifreTekrar}
+              onChangeText={setSifreTekrar}
               secureTextEntry
               autoCapitalize="none"
             />
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleRegister}
-              disabled={loading}
+              style={[styles.button, yukleniyor && styles.buttonDisabled]}
+              onPress={kayitIsleminiYap}
+              disabled={yukleniyor}
             >
-              {loading ? (
+              {yukleniyor ? (
                 <ActivityIndicator color={colors.surface} />
               ) : (
                 <Text style={styles.buttonText}>Kayıt Ol</Text>
@@ -180,4 +191,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RegisterScreen;
+export default KayitEkrani;

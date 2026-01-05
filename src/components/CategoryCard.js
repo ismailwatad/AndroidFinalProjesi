@@ -1,41 +1,51 @@
+/**
+ * Kategori Kartı Bileşeni
+ * Kategori seçimi için kullanılan kart bileşeni
+ */
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, spacing, typography, shadows } from '../constants/theme';
 
-const CategoryCard = ({ category, selected, onPress, amount }) => {
-  const formatAmount = (value) => {
-    if (!value) return '';
+const KategoriKarti = ({ kategori, secili, tiklandiginda, tutar }) => {
+  /**
+   * Tutarı para birimi formatında formatlar
+   * @param {number} deger - Formatlanacak tutar
+   * @returns {string} Formatlanmış tutar
+   */
+  const tutariFormatla = (deger) => {
+    if (!deger) return '';
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
       currency: 'TRY',
       minimumFractionDigits: 2,
-    }).format(value);
+    }).format(deger);
   };
 
   return (
     <TouchableOpacity
       style={[
-        styles.card,
+        styles.kart,
         shadows.small,
-        selected && styles.selectedCard,
-        { borderColor: category.color },
+        secili && styles.seciliKart,
+        { borderColor: kategori.color },
       ]}
-      onPress={onPress}
+      onPress={tiklandiginda}
       activeOpacity={0.7}
     >
-      <View style={[styles.iconContainer, { backgroundColor: category.color + '20' }]}>
-        <Text style={styles.icon}>{category.icon}</Text>
+      <View style={[styles.ikonKonteyner, { backgroundColor: kategori.color + '20' }]}>
+        <Text style={styles.ikon}>{kategori.icon}</Text>
       </View>
-      <Text style={styles.name}>{category.name}</Text>
-      {amount !== undefined && (
-        <Text style={styles.amount}>{formatAmount(amount)}</Text>
+      <Text style={styles.isim}>{kategori.name}</Text>
+      {tutar !== undefined && (
+        <Text style={styles.tutar}>{tutariFormatla(tutar)}</Text>
       )}
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  kart: {
     backgroundColor: colors.surface,
     borderRadius: 12,
     padding: spacing.md,
@@ -45,10 +55,10 @@ const styles = StyleSheet.create({
     minWidth: 100,
     borderWidth: 2,
   },
-  selectedCard: {
+  seciliKart: {
     backgroundColor: colors.primary + '10',
   },
-  iconContainer: {
+  ikonKonteyner: {
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -56,20 +66,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  icon: {
+  ikon: {
     fontSize: 28,
   },
-  name: {
+  isim: {
     ...typography.bodySmall,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
-  amount: {
+  tutar: {
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
   },
 });
 
-export default CategoryCard;
+export default KategoriKarti;

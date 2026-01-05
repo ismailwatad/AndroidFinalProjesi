@@ -1,3 +1,8 @@
+/**
+ * Kategori Yönetimi Ekranı Bileşeni
+ * Kategori ekleme, düzenleme ve silme işlemlerini yönetir
+ */
+
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -10,113 +15,142 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
-import { AuthContext } from '../../context/AuthContext';
-import { categoryService, DEFAULT_CATEGORIES } from '../../services/categoryService';
-import CategoryCard from '../../components/CategoryCard';
+import { KimlikDogrulamaContext } from '../../context/AuthContext';
+import { kategoriServisi, VARSAYILAN_KATEGORILER } from '../../services/categoryService';
+import KategoriKarti from '../../components/CategoryCard';
 import { colors, spacing, typography } from '../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 
-const CategoryManagementScreen = ({ navigation }) => {
-  const { user } = useContext(AuthContext);
-  const [categories, setCategories] = useState([]);
-  const [userCategories, setUserCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [formData, setFormData] = useState({
+const KategoriYonetimiEkrani = ({ navigation }) => {
+  // Context'ten kullanıcı bilgisini al
+  const { kullanici } = useContext(KimlikDogrulamaContext);
+  
+  // State'ler
+  const [kategoriler, setKategoriler] = useState([]);
+  const [kullaniciKategorileri, setKullaniciKategorileri] = useState([]);
+  const [yukleniyor, setYukleniyor] = useState(true);
+  const [modalGorunur, setModalGorunur] = useState(false);
+  const [duzenlenenKategori, setDuzenlenenKategori] = useState(null);
+  const [formVerisi, setFormVerisi] = useState({
     name: '',
     icon: '📦',
     color: colors.primary,
   });
 
+  /**
+   * Kategorileri yükleyen fonksiyon
+   */
   useEffect(() => {
-    loadCategories();
+    kategorileriYukle();
   }, []);
 
-  const loadCategories = async () => {
-    if (!user) return;
+  /**
+   * Kategorileri yükleyen fonksiyon
+   */
+  const kategorileriYukle = async () => {
+    if (!kullanici) return;
 
-    setLoading(true);
-    const result = await categoryService.getUserCategories(user.id);
-    if (result.success) {
-      const defaultCats = result.categories.filter((cat) =>
-        DEFAULT_CATEGORIES.some((dc) => dc.id === cat.id)
+    setYukleniyor(true);
+    const sonuc = await kategoriServisi.kullanicininKategorileriniGetir(kullanici.id);
+    if (sonuc.success) {
+      const varsayilanKategoriler = sonuc.categories.filter((kat) =>
+        VARSAYILAN_KATEGORILER.some((vk) => vk.id === kat.id)
       );
-      const customCats = result.categories.filter(
-        (cat) => !DEFAULT_CATEGORIES.some((dc) => dc.id === cat.id)
+      const ozelKategoriler = sonuc.categories.filter(
+        (kat) => !VARSAYILAN_KATEGORILER.some((vk) => vk.id === kat.id)
       );
-      setCategories(defaultCats);
-      setUserCategories(customCats);
+      setKategoriler(varsayilanKategoriler);
+      setKullaniciKategorileri(ozelKategoriler);
     }
-    setLoading(false);
+    setYukleniyor(false);
   };
 
-  const openAddModal = () => {
-    setEditingCategory(null);
-    setFormData({ name: '', icon: '📦', color: colors.primary });
-    setModalVisible(true);
+  /**
+   * Ekleme modalını açan fonksiyon
+   */
+  const eklemeModaliniAc = () => {
+    setDuzenlenenKategori(null);
+    setFormVerisi({ name: '', icon: '📦', color: colors.primary });
+    setModalGorunur(true);
   };
 
-  const openEditModal = (category) => {
-    setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      icon: category.icon,
-      color: category.color,
+  /**
+   * Düzenleme modalını açan fonksiyon
+   * @param {Object} kategori - Düzenlenecek kategori
+   */
+  const duzenlemeModaliniAc = (kategori) => {
+    setDuzenlenenKategori(kategori);
+    setFormVerisi({
+      name: kategori.name,
+      icon: kategori.icon,
+      color: kategori.color,
     });
-    setModalVisible(true);
+    setModalGorunur(true);
   };
 
-  const handleSave = async () => {
-    if (!formData.name.trim()) {
+  /**
+   * Kategoriyi kaydeden fonksiyon
+   * Yeni kategori ekler veya mevcut kategoriyi günceller
+   */
+  const kaydet = async () => {
+    if (!formVerisi.name.trim()) {
       Alert.alert('Hata', 'Lütfen kategori adı girin');
       return;
     }
 
-    if (editingCategory) {
+    if (duzenlenenKategori) {
       // Güncelle
-      const result = await categoryService.updateCategory(editingCategory.id, formData);
-      if (result.success) {
+      const sonuc = await kategoriServisi.kategoriGuncelle(duzenlenenKategori.id, formVerisi);
+      if (sonuc.success) {
         Alert.alert('Başarılı', 'Kategori güncellendi');
-        setModalVisible(false);
-        loadCategories();
+        setModalGorunur(false);
+        kategorileriYukle();
       } else {
-        Alert.alert('Hata', result.error);
+        Alert.alert('Hata', sonuc.error);
       }
     } else {
       // Yeni ekle
-      const result = await categoryService.addCategory(user.id, formData);
-      if (result.success) {
+      const sonuc = await kategoriServisi.kategoriEkle(kullanici.id, formVerisi);
+      if (sonuc.success) {
         Alert.alert('Başarılı', 'Kategori eklendi');
-        setModalVisible(false);
-        loadCategories();
+        setModalGorunur(false);
+        kategorileriYukle();
       } else {
-        Alert.alert('Hata', result.error);
+        Alert.alert('Hata', sonuc.error);
       }
     }
   };
 
-  const handleDelete = (category) => {
-    if (DEFAULT_CATEGORIES.some((dc) => dc.id === category.id)) {
+  /**
+   * Kategoriyi silen fonksiyon
+   * @param {Object} kategori - Silinecek kategori
+   */
+  /**
+   * Kategoriyi silen fonksiyon
+   * @param {Object} kategori - Silinecek kategori
+   */
+  const sil = (kategori) => {
+    // Varsayılan kategoriler silinemez
+    if (VARSAYILAN_KATEGORILER.some((vk) => vk.id === kategori.id)) {
       Alert.alert('Bilgi', 'Varsayılan kategoriler silinemez');
       return;
     }
 
     Alert.alert(
       'Kategoriyi Sil',
-      `${category.name} kategorisini silmek istediğinize emin misiniz?`,
+      `${kategori.name} kategorisini silmek istediğinize emin misiniz?`,
       [
         { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
           onPress: async () => {
-            const result = await categoryService.deleteCategory(category.id);
-            if (result.success) {
+            const sonuc = await kategoriServisi.kategoriSil(kategori.id);
+            if (sonuc.success) {
               Alert.alert('Başarılı', 'Kategori silindi');
-              loadCategories();
+              kategorileriYukle();
             } else {
-              Alert.alert('Hata', result.error);
+              Alert.alert('Hata', sonuc.error);
             }
           },
         },
@@ -124,7 +158,8 @@ const CategoryManagementScreen = ({ navigation }) => {
     );
   };
 
-  const colorOptions = [
+  // Renk seçenekleri
+  const renkSecenekleri = [
     '#FF6B6B',
     '#4ECDC4',
     '#95E1D3',
@@ -137,11 +172,13 @@ const CategoryManagementScreen = ({ navigation }) => {
     '#4D96FF',
   ];
 
-  const iconOptions = ['📦', '🍔', '🚗', '🎬', '💡', '🛍️', '🏥', '📚', '✈️', '🏠', '🎮', '💻'];
+  // İkon seçenekleri
+  const ikonSecenekleri = ['📦', '🍔', '🚗', '🎬', '💡', '🛍️', '🏥', '📚', '✈️', '🏠', '🎮', '💻'];
 
-  if (loading) {
+  // Yükleme durumunda gösterilecek ekran
+  if (yukleniyor) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.yuklemeKonteyner}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -151,42 +188,42 @@ const CategoryManagementScreen = ({ navigation }) => {
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
         {/* Varsayılan Kategoriler */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Varsayılan Kategoriler</Text>
-          <View style={styles.categoriesGrid}>
-            {categories.map((category) => (
-              <View key={category.id} style={styles.categoryWrapper}>
-                <CategoryCard category={category} />
+        <View style={styles.bolum}>
+          <Text style={styles.bolumBasligi}>Varsayılan Kategoriler</Text>
+          <View style={styles.kategorilerIzgara}>
+            {kategoriler.map((kategori) => (
+              <View key={kategori.id} style={styles.kategoriSarayici}>
+                <KategoriKarti kategori={kategori} />
               </View>
             ))}
           </View>
         </View>
 
         {/* Kullanıcı Kategorileri */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Özel Kategoriler</Text>
-            <TouchableOpacity onPress={openAddModal} style={styles.addButton}>
+        <View style={styles.bolum}>
+          <View style={styles.bolumBaslikAlani}>
+            <Text style={styles.bolumBasligi}>Özel Kategoriler</Text>
+            <TouchableOpacity onPress={eklemeModaliniAc} style={styles.ekleButonu}>
               <Ionicons name="add-circle" size={28} color={colors.primary} />
             </TouchableOpacity>
           </View>
-          {userCategories.length === 0 ? (
-            <Text style={styles.emptyText}>Henüz özel kategori eklenmemiş</Text>
+          {kullaniciKategorileri.length === 0 ? (
+            <Text style={styles.bosMetin}>Henüz özel kategori eklenmemiş</Text>
           ) : (
-            <View style={styles.categoriesGrid}>
-              {userCategories.map((category) => (
-                <View key={category.id} style={styles.categoryWrapper}>
-                  <CategoryCard category={category} />
-                  <View style={styles.categoryActions}>
+            <View style={styles.kategorilerIzgara}>
+              {kullaniciKategorileri.map((kategori) => (
+                <View key={kategori.id} style={styles.kategoriSarayici}>
+                  <KategoriKarti kategori={kategori} />
+                  <View style={styles.kategoriIslemleri}>
                     <TouchableOpacity
-                      onPress={() => openEditModal(category)}
-                      style={styles.actionButton}
+                      onPress={() => duzenlemeModaliniAc(kategori)}
+                      style={styles.islemButonu}
                     >
                       <Ionicons name="create-outline" size={18} color={colors.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => handleDelete(category)}
-                      style={styles.actionButton}
+                      onPress={() => sil(kategori)}
+                      style={styles.islemButonu}
                     >
                       <Ionicons name="trash-outline" size={18} color={colors.error} />
                     </TouchableOpacity>
@@ -200,64 +237,64 @@ const CategoryManagementScreen = ({ navigation }) => {
 
       {/* Kategori Ekleme/Düzenleme Modal */}
       <Modal
-        visible={modalVisible}
+        visible={modalGorunur}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => setModalGorunur(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingCategory ? 'Kategori Düzenle' : 'Yeni Kategori'}
+        <View style={styles.modalKonteyner}>
+          <View style={styles.modalIcerik}>
+            <View style={styles.modalBaslik}>
+              <Text style={styles.modalBaslikMetni}>
+                {duzenlenenKategori ? 'Kategori Düzenle' : 'Yeni Kategori'}
               </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity onPress={() => setModalGorunur(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             <TextInput
-              style={styles.input}
+              style={styles.girdi}
               placeholder="Kategori Adı"
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
+              value={formVerisi.name}
+              onChangeText={(metin) => setFormVerisi({ ...formVerisi, name: metin })}
             />
 
-            <Text style={styles.label}>İkon</Text>
+            <Text style={styles.etiket}>İkon</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.iconContainer}>
-                {iconOptions.map((icon) => (
+              <View style={styles.ikonKonteyner}>
+                {ikonSecenekleri.map((ikon) => (
                   <TouchableOpacity
-                    key={icon}
+                    key={ikon}
                     style={[
-                      styles.iconOption,
-                      formData.icon === icon && styles.iconOptionSelected,
+                      styles.ikonSecenegi,
+                      formVerisi.icon === ikon && styles.ikonSecenegiSecili,
                     ]}
-                    onPress={() => setFormData({ ...formData, icon })}
+                    onPress={() => setFormVerisi({ ...formVerisi, icon: ikon })}
                   >
-                    <Text style={styles.iconText}>{icon}</Text>
+                    <Text style={styles.ikonMetni}>{ikon}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </ScrollView>
 
-            <Text style={styles.label}>Renk</Text>
-            <View style={styles.colorContainer}>
-              {colorOptions.map((color) => (
+            <Text style={styles.etiket}>Renk</Text>
+            <View style={styles.renkKonteyner}>
+              {renkSecenekleri.map((renk) => (
                 <TouchableOpacity
-                  key={color}
+                  key={renk}
                   style={[
-                    styles.colorOption,
-                    { backgroundColor: color },
-                    formData.color === color && styles.colorOptionSelected,
+                    styles.renkSecenegi,
+                    { backgroundColor: renk },
+                    formVerisi.color === renk && styles.renkSecenegiSecili,
                   ]}
-                  onPress={() => setFormData({ ...formData, color })}
+                  onPress={() => setFormVerisi({ ...formVerisi, color: renk })}
                 />
               ))}
             </View>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveButtonText}>Kaydet</Text>
+            <TouchableOpacity style={styles.kaydetButonu} onPress={kaydet}>
+              <Text style={styles.kaydetButonuMetni}>Kaydet</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -267,40 +304,40 @@ const CategoryManagementScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  konteyner: {
     flex: 1,
     backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
   },
-  loadingContainer: {
+  yuklemeKonteyner: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  section: {
+  bolum: {
     padding: spacing.lg,
   },
-  sectionHeader: {
+  bolumBaslikAlani: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  sectionTitle: {
+  bolumBasligi: {
     ...typography.h3,
     color: colors.text,
     marginBottom: spacing.md,
   },
-  categoriesGrid: {
+  kategorilerIzgara: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  categoryWrapper: {
+  kategoriSarayici: {
     position: 'relative',
   },
-  categoryActions: {
+  kategoriIslemleri: {
     position: 'absolute',
     top: 0,
     right: 0,
@@ -309,41 +346,41 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: spacing.xs,
   },
-  actionButton: {
+  islemButonu: {
     padding: spacing.xs,
   },
-  addButton: {
+  ekleButonu: {
     padding: spacing.xs,
   },
-  emptyText: {
+  bosMetin: {
     ...typography.bodySmall,
     color: colors.textSecondary,
     textAlign: 'center',
     padding: spacing.lg,
   },
-  modalContainer: {
+  modalKonteyner: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalContent: {
+  modalIcerik: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: spacing.lg,
     maxHeight: '80%',
   },
-  modalHeader: {
+  modalBaslik: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
-  modalTitle: {
+  modalBaslikMetni: {
     ...typography.h3,
     color: colors.text,
   },
-  input: {
+  girdi: {
     backgroundColor: colors.background,
     borderRadius: 12,
     padding: spacing.md,
@@ -352,17 +389,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  label: {
+  etiket: {
     ...typography.body,
     fontWeight: '600',
     marginBottom: spacing.sm,
     color: colors.text,
   },
-  iconContainer: {
+  ikonKonteyner: {
     flexDirection: 'row',
     marginBottom: spacing.lg,
   },
-  iconOption: {
+  ikonSecenegi: {
     width: 50,
     height: 50,
     borderRadius: 25,
@@ -373,18 +410,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  iconOptionSelected: {
+  ikonSecenegiSecili: {
     borderColor: colors.primary,
   },
-  iconText: {
+  ikonMetni: {
     fontSize: 24,
   },
-  colorContainer: {
+  renkKonteyner: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: spacing.lg,
   },
-  colorOption: {
+  renkSecenegi: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -393,21 +430,21 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'transparent',
   },
-  colorOptionSelected: {
+  renkSecenegiSecili: {
     borderColor: colors.text,
   },
-  saveButton: {
+  kaydetButonu: {
     backgroundColor: colors.primary,
     borderRadius: 12,
     padding: spacing.md,
     alignItems: 'center',
     marginTop: spacing.md,
   },
-  saveButtonText: {
+  kaydetButonuMetni: {
     color: colors.surface,
     ...typography.body,
     fontWeight: '600',
   },
 });
 
-export default CategoryManagementScreen;
+export default KategoriYonetimiEkrani;

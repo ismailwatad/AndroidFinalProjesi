@@ -1,3 +1,8 @@
+/**
+ * Raporlar Ekranı Bileşeni
+ * Aylık finansal raporları ve grafikleri gösterir
+ */
+
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -7,156 +12,172 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import SimplePieChart from '../../components/SimplePieChart';
-import { AuthContext } from '../../context/AuthContext';
-import { transactionService } from '../../services/transactionService';
-import { categoryService } from '../../services/categoryService';
-import SummaryCard from '../../components/SummaryCard';
+import BasitPastaGrafik from '../../components/SimplePieChart';
+import { KimlikDogrulamaContext } from '../../context/AuthContext';
+import { islemServisi } from '../../services/transactionService';
+import { kategoriServisi } from '../../services/categoryService';
+import OzetKarti from '../../components/SummaryCard';
 import { colors, spacing, typography } from '../../constants/theme';
 import { format, subMonths, addMonths } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { Ionicons } from '@expo/vector-icons';
 
-const ReportsScreen = () => {
-  const { user } = useContext(AuthContext);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [summary, setSummary] = useState({
+const RaporlarEkrani = () => {
+  // Context'ten kullanıcı bilgisini al
+  const { kullanici } = useContext(KimlikDogrulamaContext);
+  
+  // State'ler
+  const [seciliTarih, setSeciliTarih] = useState(new Date());
+  const [islemler, setIslemler] = useState([]);
+  const [kategoriler, setKategoriler] = useState([]);
+  const [ozet, setOzet] = useState({
     totalIncome: 0,
     totalExpense: 0,
     balance: 0,
     categoryExpenses: {},
   });
-  const [loading, setLoading] = useState(true);
+  const [yukleniyor, setYukleniyor] = useState(true);
 
-  const loadData = useCallback(async () => {
-    if (!user) return;
+  /**
+   * Verileri yükleyen fonksiyon
+   * Kategorileri ve işlemleri getirir, özeti hesaplar
+   */
+  const verileriYukle = useCallback(async () => {
+    if (!kullanici) return;
 
-    setLoading(true);
+    setYukleniyor(true);
     try {
       // Kategorileri yükle
-      const categoriesResult = await categoryService.getUserCategories(user.id);
-      if (categoriesResult.success) {
-        setCategories(categoriesResult.categories);
+      const kategorilerSonucu = await kategoriServisi.kullanicininKategorileriniGetir(kullanici.id);
+      if (kategorilerSonucu.success) {
+        setKategoriler(kategorilerSonucu.categories);
       }
 
       // İşlemleri yükle
-      const transactionsResult = await transactionService.getMonthlyTransactions(
-        user.id,
-        selectedDate
+      const islemlerSonucu = await islemServisi.aylikIslemleriGetir(
+        kullanici.id,
+        seciliTarih
       );
-      if (transactionsResult.success) {
-        setTransactions(transactionsResult.transactions);
+      if (islemlerSonucu.success) {
+        setIslemler(islemlerSonucu.transactions);
         
         // Özeti hesapla
-        const monthlySummary = transactionService.calculateMonthlySummary(
-          transactionsResult.transactions
+        const aylikOzet = islemServisi.aylikOzetiHesapla(
+          islemlerSonucu.transactions
         );
-        setSummary(monthlySummary);
+        setOzet(aylikOzet);
       }
-    } catch (error) {
-      console.error('Veri yükleme hatası:', error);
+    } catch (hata) {
+      console.error('Veri yükleme hatası:', hata);
     } finally {
-      setLoading(false);
+      setYukleniyor(false);
     }
-  }, [user, selectedDate]);
+  }, [kullanici, seciliTarih]);
 
   useEffect(() => {
-    if (user) {
-      loadData();
+    if (kullanici) {
+      verileriYukle();
     }
-  }, [user, selectedDate, loadData]);
+  }, [kullanici, seciliTarih, verileriYukle]);
 
   // Ekran odaklandığında verileri yeniden yükle
   useFocusEffect(
     useCallback(() => {
-      if (user) {
-        loadData();
+      if (kullanici) {
+        verileriYukle();
       }
-    }, [user, loadData])
+    }, [kullanici, verileriYukle])
   );
 
-  const changeMonth = (direction) => {
-    if (direction === 'prev') {
-      setSelectedDate(subMonths(selectedDate, 1));
+  /**
+   * Ay değiştirme fonksiyonu
+   * @param {string} yon - 'prev' (önceki) veya 'next' (sonraki)
+   */
+  const ayiDegistir = (yon) => {
+    if (yon === 'prev') {
+      setSeciliTarih(subMonths(seciliTarih, 1));
     } else {
-      setSelectedDate(addMonths(selectedDate, 1));
+      setSeciliTarih(addMonths(seciliTarih, 1));
     }
   };
 
-  const prepareChartData = () => {
-    const categoryExpenses = summary.categoryExpenses || {};
-    const chartData = [];
+  /**
+   * Grafik verilerini hazırlayan fonksiyon
+   * Kategori giderlerini grafik formatına dönüştürür
+   * @returns {Array} Grafik verileri
+   */
+  const grafikVerileriniHazirla = () => {
+    const kategoriGiderleri = ozet.categoryExpenses || {};
+    const grafikVerileri = [];
 
-    Object.keys(categoryExpenses).forEach((categoryId) => {
-      const category = categoryService.getCategoryById(categoryId, categories);
-      if (category && categoryExpenses[categoryId] > 0) {
-        chartData.push({
-          name: category.name,
-          amount: categoryExpenses[categoryId],
-          color: category.color,
+    Object.keys(kategoriGiderleri).forEach((kategoriId) => {
+      const kategori = kategoriServisi.kategoriIdyeGoreGetir(kategoriId, kategoriler);
+      if (kategori && kategoriGiderleri[kategoriId] > 0) {
+        grafikVerileri.push({
+          name: kategori.name,
+          amount: kategoriGiderleri[kategoriId],
+          color: kategori.color,
           legendFontColor: colors.text,
           legendFontSize: 12,
         });
       }
     });
 
-    return chartData;
+    return grafikVerileri;
   };
 
-  const chartData = prepareChartData();
-  const hasExpenses = summary.totalExpense > 0;
+  const grafikVerileri = grafikVerileriniHazirla();
+  const giderVarMi = ozet.totalExpense > 0;
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.konteyner}>
       {/* Ay Seçici */}
-      <View style={styles.monthSelector}>
-        <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthButton}>
+      <View style={styles.aySecici}>
+        <TouchableOpacity onPress={() => ayiDegistir('prev')} style={styles.ayButonu}>
           <Ionicons name="chevron-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.monthText}>
-          {format(selectedDate, 'MMMM yyyy', { locale: tr })}
+        <Text style={styles.ayMetni}>
+          {format(seciliTarih, 'MMMM yyyy', { locale: tr })}
         </Text>
-        <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthButton}>
+        <TouchableOpacity onPress={() => ayiDegistir('next')} style={styles.ayButonu}>
           <Ionicons name="chevron-forward" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {/* Özet Kartları */}
-      <View style={styles.summarySection}>
-        <SummaryCard
-          title="Toplam Gelir"
-          amount={summary.totalIncome}
-          icon="arrow-down-circle"
-          color={colors.success}
+      <View style={styles.ozetBolumu}>
+        <OzetKarti
+          baslik="Toplam Gelir"
+          tutar={ozet.totalIncome}
+          ikon="arrow-down-circle"
+          renk={colors.success}
         />
-        <SummaryCard
-          title="Toplam Gider"
-          amount={summary.totalExpense}
-          icon="arrow-up-circle"
-          color={colors.error}
+        <OzetKarti
+          baslik="Toplam Gider"
+          tutar={ozet.totalExpense}
+          ikon="arrow-up-circle"
+          renk={colors.error}
         />
-        <SummaryCard
-          title="Kalan Bakiye"
-          amount={summary.balance}
-          icon="wallet"
-          color={summary.balance >= 0 ? colors.primary : colors.warning}
+        <OzetKarti
+          baslik="Kalan Bakiye"
+          tutar={ozet.balance}
+          ikon="wallet"
+          renk={ozet.balance >= 0 ? colors.primary : colors.warning}
         />
       </View>
 
       {/* Grafik Bölümü */}
-      {hasExpenses && chartData.length > 0 ? (
-        <View style={styles.chartSection}>
-          <Text style={styles.sectionTitle}>Kategoriye Göre Gider Dağılımı</Text>
-          <View style={styles.chartContainer}>
-            <SimplePieChart data={chartData} />
+      {giderVarMi && grafikVerileri.length > 0 ? (
+        <View style={styles.grafikBolumu}>
+          <Text style={styles.bolumBasligi}>Kategoriye Göre Gider Dağılımı</Text>
+          <View style={styles.grafikKonteyner}>
+            <BasitPastaGrafik data={grafikVerileri} />
           </View>
         </View>
       ) : (
-        <View style={styles.emptyState}>
+        <View style={styles.bosDurum}>
           <Ionicons name="bar-chart-outline" size={64} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>Bu ay için gider verisi bulunmuyor</Text>
+          <Text style={styles.bosMetin}>Bu ay için gider verisi bulunmuyor</Text>
         </View>
       )}
     </ScrollView>
@@ -164,11 +185,11 @@ const ReportsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  konteyner: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  monthSelector: {
+  aySecici: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -176,42 +197,42 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     marginBottom: spacing.md,
   },
-  monthButton: {
+  ayButonu: {
     padding: spacing.sm,
   },
-  monthText: {
+  ayMetni: {
     ...typography.h3,
     color: colors.text,
   },
-  summarySection: {
+  ozetBolumu: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
-  chartSection: {
+  grafikBolumu: {
     padding: spacing.lg,
   },
-  sectionTitle: {
+  bolumBasligi: {
     ...typography.h3,
     marginBottom: spacing.md,
     color: colors.text,
   },
-  chartContainer: {
+  grafikKonteyner: {
     alignItems: 'center',
     backgroundColor: colors.surface,
     borderRadius: 12,
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  emptyState: {
+  bosDurum: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xl * 2,
   },
-  emptyText: {
+  bosMetin: {
     ...typography.body,
     color: colors.textLight,
     marginTop: spacing.md,
   },
 });
 
-export default ReportsScreen;
+export default RaporlarEkrani;

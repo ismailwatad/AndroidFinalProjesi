@@ -1,79 +1,91 @@
+/**
+ * Uygulama Navigasyon Yapısı
+ * Stack ve Tab navigasyonlarını yönetir
+ */
+
 import React, { useContext } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { AuthContext } from '../context/AuthContext';
+import { KimlikDogrulamaContext } from '../context/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Kimlik Doğrulama Ekranları
-import LoginScreen from '../screens/auth/LoginScreen';
-import RegisterScreen from '../screens/auth/RegisterScreen';
+import GirisEkrani from '../screens/auth/LoginScreen';
+import KayitEkrani from '../screens/auth/RegisterScreen';
 
 // Ana Ekranlar
-import DashboardScreen from '../screens/main/DashboardScreen';
-import AddTransactionScreen from '../screens/main/AddTransactionScreen';
-import ReportsScreen from '../screens/main/ReportsScreen';
-import SettingsScreen from '../screens/main/SettingsScreen';
-import CategoryManagementScreen from '../screens/main/CategoryManagementScreen';
-import ProfileScreen from '../screens/main/ProfileScreen';
+import AnaSayfaEkrani from '../screens/main/DashboardScreen';
+import IslemEkleEkrani from '../screens/main/AddTransactionScreen';
+import RaporlarEkrani from '../screens/main/ReportsScreen';
+import AyarlarEkrani from '../screens/main/SettingsScreen';
+import KategoriYonetimiEkrani from '../screens/main/CategoryManagementScreen';
+import ProfilEkrani from '../screens/main/ProfileScreen';
 
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
+const YiginNavigator = createNativeStackNavigator();
+const AltSekmeNavigator = createBottomTabNavigator();
 
-// Ana Tab Navigator
-const MainTabs = () => {
+/**
+ * Ana Alt Sekme Navigator Bileşeni
+ * Alt kısımdaki sekme navigasyonunu oluşturur
+ */
+const AnaAltSekmeler = () => {
   return (
-    <Tab.Navigator
+    <AltSekmeNavigator.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+          let ikonAdi;
 
           if (route.name === 'Dashboard') {
-            iconName = focused ? 'home' : 'home-outline';
+            ikonAdi = focused ? 'home' : 'home-outline';
           } else if (route.name === 'AddTransaction') {
-            iconName = focused ? 'add-circle' : 'add-circle-outline';
+            ikonAdi = focused ? 'add-circle' : 'add-circle-outline';
           } else if (route.name === 'Reports') {
-            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
+            ikonAdi = focused ? 'bar-chart' : 'bar-chart-outline';
           } else if (route.name === 'Settings') {
-            iconName = focused ? 'settings' : 'settings-outline';
+            ikonAdi = focused ? 'settings' : 'settings-outline';
           }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={ikonAdi} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#4ECDC4',
         tabBarInactiveTintColor: 'gray',
         headerShown: true,
       })}
     >
-      <Tab.Screen 
+      <AltSekmeNavigator.Screen 
         name="Dashboard" 
-        component={DashboardScreen}
+        component={AnaSayfaEkrani}
         options={{ title: 'Ana Sayfa' }}
       />
-      <Tab.Screen 
+      <AltSekmeNavigator.Screen 
         name="AddTransaction" 
-        component={AddTransactionScreen}
+        component={IslemEkleEkrani}
         options={{ title: 'İşlem Ekle' }}
       />
-      <Tab.Screen 
+      <AltSekmeNavigator.Screen 
         name="Reports" 
-        component={ReportsScreen}
+        component={RaporlarEkrani}
         options={{ title: 'Raporlar' }}
       />
-      <Tab.Screen 
+      <AltSekmeNavigator.Screen 
         name="Settings" 
-        component={SettingsScreen}
+        component={AyarlarEkrani}
         options={{ title: 'Ayarlar' }}
       />
-    </Tab.Navigator>
+    </AltSekmeNavigator.Navigator>
   );
 };
 
-// Ana Navigator
-const AppNavigator = () => {
-  const { user, loading } = useContext(AuthContext);
+/**
+ * Ana Uygulama Navigator Bileşeni
+ * Kullanıcı durumuna göre ekranları yönetir
+ */
+const UygulamaNavigatoru = () => {
+  const { kullanici, yukleniyor } = useContext(KimlikDogrulamaContext);
 
-  if (loading) {
+  // Yükleme durumunda gösterilecek ekran
+  if (yukleniyor) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#4ECDC4" />
@@ -82,31 +94,32 @@ const AppNavigator = () => {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {user ? (
+    <YiginNavigator.Navigator screenOptions={{ headerShown: false }}>
+      {kullanici ? (
+        // Kullanıcı giriş yapmışsa ana ekranları göster
         <>
-          <Stack.Screen name="MainTabs" component={MainTabs} />
-          <Stack.Screen 
+          <YiginNavigator.Screen name="MainTabs" component={AnaAltSekmeler} />
+          <YiginNavigator.Screen 
             name="AddTransaction" 
-            component={AddTransactionScreen}
+            component={IslemEkleEkrani}
             options={{ 
               headerShown: true, 
               title: 'İşlem Ekle',
               presentation: 'card'
             }}
           />
-          <Stack.Screen 
+          <YiginNavigator.Screen 
             name="CategoryManagement" 
-            component={CategoryManagementScreen}
+            component={KategoriYonetimiEkrani}
             options={{ 
               headerShown: true, 
               title: 'Kategori Yönetimi',
               presentation: 'modal'
             }}
           />
-          <Stack.Screen 
+          <YiginNavigator.Screen 
             name="Profile" 
-            component={ProfileScreen}
+            component={ProfilEkrani}
             options={{ 
               headerShown: true, 
               title: 'Profil Ayarları',
@@ -115,13 +128,14 @@ const AppNavigator = () => {
           />
         </>
       ) : (
+        // Kullanıcı giriş yapmamışsa kimlik doğrulama ekranlarını göster
         <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
+          <YiginNavigator.Screen name="Login" component={GirisEkrani} />
+          <YiginNavigator.Screen name="Register" component={KayitEkrani} />
         </>
       )}
-    </Stack.Navigator>
+    </YiginNavigator.Navigator>
   );
 };
 
-export default AppNavigator;
+export default UygulamaNavigatoru;

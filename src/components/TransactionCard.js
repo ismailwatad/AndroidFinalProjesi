@@ -1,3 +1,8 @@
+/**
+ * İşlem Kartı Bileşeni
+ * Tek bir işlemi (gelir/gider) gösteren kart bileşeni
+ */
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, spacing, typography, shadows } from '../constants/theme';
@@ -5,48 +10,55 @@ import { format } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { Ionicons } from '@expo/vector-icons';
 
-const TransactionCard = ({ transaction, category, onPress, onDelete }) => {
-  const formatAmount = (value) => {
+const IslemKarti = ({ islem, kategori, tiklandiginda, silindiginde }) => {
+  /**
+   * Tutarı para birimi formatında formatlar
+   * @param {number} deger - Formatlanacak tutar
+   * @returns {string} Formatlanmış tutar
+   */
+  const tutariFormatla = (deger) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
       currency: 'TRY',
       minimumFractionDigits: 2,
-    }).format(value);
+    }).format(deger);
   };
 
-  const isIncome = transaction.type === 'income';
-  const categoryInfo = category || { name: 'Diğer', icon: '📦', color: colors.textSecondary };
+  // İşlem tipini kontrol et
+  const gelirMi = islem.type === 'income';
+  // Kategori bilgilerini al veya varsayılan kullan
+  const kategoriBilgisi = kategori || { name: 'Diğer', icon: '📦', color: colors.textSecondary };
 
   return (
     <TouchableOpacity
-      style={[styles.card, shadows.small]}
-      onPress={onPress}
+      style={[styles.kart, shadows.small]}
+      onPress={tiklandiginda}
       activeOpacity={0.7}
     >
-      <View style={styles.leftSection}>
-        <View style={[styles.iconContainer, { backgroundColor: categoryInfo.color + '20' }]}>
-          <Text style={styles.icon}>{categoryInfo.icon}</Text>
+      <View style={styles.solBolum}>
+        <View style={[styles.ikonKonteyner, { backgroundColor: kategoriBilgisi.color + '20' }]}>
+          <Text style={styles.ikon}>{kategoriBilgisi.icon}</Text>
         </View>
-        <View style={styles.info}>
-          <Text style={styles.category}>{categoryInfo.name}</Text>
-          <Text style={styles.date}>
-            {format(transaction.date, 'dd MMMM yyyy', { locale: tr })}
+        <View style={styles.bilgi}>
+          <Text style={styles.kategori}>{kategoriBilgisi.name}</Text>
+          <Text style={styles.tarih}>
+            {format(islem.date, 'dd MMMM yyyy', { locale: tr })}
           </Text>
         </View>
       </View>
-      <View style={styles.rightSection}>
+      <View style={styles.sagBolum}>
         <Text
           style={[
-            styles.amount,
-            { color: isIncome ? colors.success : colors.error },
+            styles.tutar,
+            { color: gelirMi ? colors.success : colors.error },
           ]}
         >
-          {isIncome ? '+' : '-'} {formatAmount(transaction.amount)}
+          {gelirMi ? '+' : '-'} {tutariFormatla(islem.amount)}
         </Text>
-        {onDelete && (
+        {silindiginde && (
           <TouchableOpacity
-            onPress={() => onDelete(transaction.id)}
-            style={styles.deleteButton}
+            onPress={() => silindiginde(islem.id)}
+            style={styles.silButonu}
           >
             <Ionicons name="trash-outline" size={18} color={colors.error} />
           </TouchableOpacity>
@@ -57,7 +69,7 @@ const TransactionCard = ({ transaction, category, onPress, onDelete }) => {
 };
 
 const styles = StyleSheet.create({
-  card: {
+  kart: {
     backgroundColor: colors.surface,
     borderRadius: 12,
     padding: spacing.md,
@@ -66,12 +78,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  leftSection: {
+  solBolum: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  iconContainer: {
+  ikonKonteyner: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -79,32 +91,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: spacing.md,
   },
-  icon: {
+  ikon: {
     fontSize: 24,
   },
-  info: {
+  bilgi: {
     flex: 1,
   },
-  category: {
+  kategori: {
     ...typography.body,
     fontWeight: '600',
     marginBottom: 2,
   },
-  date: {
+  tarih: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  rightSection: {
+  sagBolum: {
     alignItems: 'flex-end',
   },
-  amount: {
+  tutar: {
     ...typography.h3,
     fontWeight: 'bold',
     marginBottom: spacing.xs,
   },
-  deleteButton: {
+  silButonu: {
     padding: spacing.xs,
   },
 });
 
-export default TransactionCard;
+export default IslemKarti;

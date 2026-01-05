@@ -1,183 +1,227 @@
+/**
+ * İşlem Servisi
+ * Gelir ve gider işlemlerini yöneten servis
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
 
-const TRANSACTIONS_KEY = '@transactions';
+// AsyncStorage anahtarı
+const ISLEMLER_ANAHTARI = '@transactions';
 
-// Tüm işlemleri getiren yardımcı fonksiyon
-const getAllTransactions = async () => {
+/**
+ * Tüm işlemleri AsyncStorage'dan getiren yardımcı fonksiyon
+ * @returns {Promise<Array>} İşlem listesi
+ */
+const tumIslemleriGetir = async () => {
   try {
-    const data = await AsyncStorage.getItem(TRANSACTIONS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (error) {
-    console.error('İşlemler alınırken hata:', error);
+    const veri = await AsyncStorage.getItem(ISLEMLER_ANAHTARI);
+    return veri ? JSON.parse(veri) : [];
+  } catch (hata) {
+    console.error('İşlemler alınırken hata:', hata);
     return [];
   }
 };
 
-// Tüm işlemleri kaydeden yardımcı fonksiyon
-const saveAllTransactions = async (transactions) => {
+/**
+ * Tüm işlemleri AsyncStorage'a kaydeden yardımcı fonksiyon
+ * @param {Array} islemler - Kaydedilecek işlem listesi
+ * @returns {Promise<boolean>} İşlem başarılı mı?
+ */
+const tumIslemleriKaydet = async (islemler) => {
   try {
-    await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
+    await AsyncStorage.setItem(ISLEMLER_ANAHTARI, JSON.stringify(islemler));
     return true;
-  } catch (error) {
-    console.error('İşlemler kaydedilirken hata:', error);
+  } catch (hata) {
+    console.error('İşlemler kaydedilirken hata:', hata);
     return false;
   }
 };
 
-export const transactionService = {
-  // Yeni işlem ekle
-  addTransaction: async (userId, transactionData) => {
+/**
+ * İşlem Servisi Objesi
+ * Tüm işlem işlemlerini içeren servis
+ */
+export const islemServisi = {
+  /**
+   * Yeni işlem ekler
+   * @param {string} kullaniciId - İşlemi ekleyen kullanıcı ID'si
+   * @param {Object} islemVerisi - İşlem bilgileri
+   * @returns {Promise<Object>} İşlem sonucu ve işlem ID'si
+   */
+  islemEkle: async (kullaniciId, islemVerisi) => {
     try {
-      const transactions = await getAllTransactions();
-      const newTransaction = {
+      const islemler = await tumIslemleriGetir();
+      const yeniIslem = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        ...transactionData,
-        userId,
-        date: transactionData.date instanceof Date 
-          ? transactionData.date.toISOString() 
-          : transactionData.date,
+        ...islemVerisi,
+        userId: kullaniciId,
+        date: islemVerisi.date instanceof Date 
+          ? islemVerisi.date.toISOString() 
+          : islemVerisi.date,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
       
-      transactions.push(newTransaction);
-      const saved = await saveAllTransactions(transactions);
+      islemler.push(yeniIslem);
+      const kaydedildi = await tumIslemleriKaydet(islemler);
       
-      if (saved) {
-        return { success: true, id: newTransaction.id };
+      if (kaydedildi) {
+        return { success: true, id: yeniIslem.id };
       } else {
         return { success: false, error: 'İşlem kaydedilemedi' };
       }
-    } catch (error) {
-      return { success: false, error: error.message };
+    } catch (hata) {
+      return { success: false, error: hata.message };
     }
   },
 
-  // İşlem güncelle
-  updateTransaction: async (transactionId, transactionData) => {
+  /**
+   * Mevcut işlemi günceller
+   * @param {string} islemId - Güncellenecek işlem ID'si
+   * @param {Object} islemVerisi - Güncellenecek işlem bilgileri
+   * @returns {Promise<Object>} İşlem sonucu
+   */
+  islemGuncelle: async (islemId, islemVerisi) => {
     try {
-      const transactions = await getAllTransactions();
-      const index = transactions.findIndex(t => t.id === transactionId);
+      const islemler = await tumIslemleriGetir();
+      const indeks = islemler.findIndex(i => i.id === islemId);
       
-      if (index === -1) {
-        return { success: false, error: 'Transaction not found' };
+      if (indeks === -1) {
+        return { success: false, error: 'İşlem bulunamadı' };
       }
       
-      transactions[index] = {
-        ...transactions[index],
-        ...transactionData,
-        date: transactionData.date instanceof Date 
-          ? transactionData.date.toISOString() 
-          : transactionData.date || transactions[index].date,
+      islemler[indeks] = {
+        ...islemler[indeks],
+        ...islemVerisi,
+        date: islemVerisi.date instanceof Date 
+          ? islemVerisi.date.toISOString() 
+          : islemVerisi.date || islemler[indeks].date,
         updatedAt: new Date().toISOString(),
       };
       
-      const saved = await saveAllTransactions(transactions);
-      return saved ? { success: true } : { success: false, error: 'İşlem güncellenemedi' };
-    } catch (error) {
-      return { success: false, error: error.message };
+      const kaydedildi = await tumIslemleriKaydet(islemler);
+      return kaydedildi ? { success: true } : { success: false, error: 'İşlem güncellenemedi' };
+    } catch (hata) {
+      return { success: false, error: hata.message };
     }
   },
 
-  // İşlem sil
-  deleteTransaction: async (transactionId) => {
+  /**
+   * İşlemi siler
+   * @param {string} islemId - Silinecek işlem ID'si
+   * @returns {Promise<Object>} İşlem sonucu
+   */
+  islemSil: async (islemId) => {
     try {
-      const transactions = await getAllTransactions();
-      const filtered = transactions.filter(t => t.id !== transactionId);
-      const saved = await saveAllTransactions(filtered);
-      return saved ? { success: true } : { success: false, error: 'İşlem silinemedi' };
-    } catch (error) {
-      return { success: false, error: error.message };
+      const islemler = await tumIslemleriGetir();
+      const filtrelenmisIslemler = islemler.filter(i => i.id !== islemId);
+      const kaydedildi = await tumIslemleriKaydet(filtrelenmisIslemler);
+      return kaydedildi ? { success: true } : { success: false, error: 'İşlem silinemedi' };
+    } catch (hata) {
+      return { success: false, error: hata.message };
     }
   },
 
-  // Kullanıcının tüm işlemlerini getir
-  getUserTransactions: async (userId) => {
+  /**
+   * Kullanıcının tüm işlemlerini getirir
+   * @param {string} kullaniciId - Kullanıcı ID'si
+   * @returns {Promise<Object>} İşlem sonucu ve işlem listesi
+   */
+  kullanicininIslemleriniGetir: async (kullaniciId) => {
     try {
-      const transactions = await getAllTransactions();
-      const userTransactions = transactions
-        .filter(t => t.userId === userId)
-        .map(t => ({
-          ...t,
-          date: t.date ? (typeof t.date === 'string' ? parseISO(t.date) : t.date) : new Date(),
+      const islemler = await tumIslemleriGetir();
+      const kullaniciIslemleri = islemler
+        .filter(i => i.userId === kullaniciId)
+        .map(i => ({
+          ...i,
+          date: i.date ? (typeof i.date === 'string' ? parseISO(i.date) : i.date) : new Date(),
         }))
         .sort((a, b) => {
-          const dateA = a.date instanceof Date ? a.date : parseISO(a.date);
-          const dateB = b.date instanceof Date ? b.date : parseISO(b.date);
-          return dateB - dateA; // Azalan sıra
+          const tarihA = a.date instanceof Date ? a.date : parseISO(a.date);
+          const tarihB = b.date instanceof Date ? b.date : parseISO(b.date);
+          return tarihB - tarihA; // Azalan sıra
         });
       
-      return { success: true, transactions: userTransactions };
-    } catch (error) {
-      return { success: false, error: error.message, transactions: [] };
+      return { success: true, transactions: kullaniciIslemleri };
+    } catch (hata) {
+      return { success: false, error: hata.message, transactions: [] };
     }
   },
 
-  // Belirli bir ayın işlemlerini getir
-  getMonthlyTransactions: async (userId, monthDate) => {
+  /**
+   * Belirli bir ayın işlemlerini getirir
+   * @param {string} kullaniciId - Kullanıcı ID'si
+   * @param {Date} ayTarihi - Ay tarihi
+   * @returns {Promise<Object>} İşlem sonucu ve işlem listesi
+   */
+  aylikIslemleriGetir: async (kullaniciId, ayTarihi) => {
     try {
-      const startDate = startOfMonth(monthDate);
-      const endDate = endOfMonth(monthDate);
+      const baslangicTarihi = startOfMonth(ayTarihi);
+      const bitisTarihi = endOfMonth(ayTarihi);
       
-      const transactions = await getAllTransactions();
-      const userTransactions = transactions
-        .filter(t => {
-          if (t.userId !== userId) return false;
+      const islemler = await tumIslemleriGetir();
+      const kullaniciIslemleri = islemler
+        .filter(i => {
+          if (i.userId !== kullaniciId) return false;
           
-          const transactionDate = t.date 
-            ? (typeof t.date === 'string' ? parseISO(t.date) : new Date(t.date))
+          const islemTarihi = i.date 
+            ? (typeof i.date === 'string' ? parseISO(i.date) : new Date(i.date))
             : new Date();
           
-          return isWithinInterval(transactionDate, { start: startDate, end: endDate });
+          return isWithinInterval(islemTarihi, { start: baslangicTarihi, end: bitisTarihi });
         })
-        .map(t => ({
-          ...t,
-          date: t.date ? (typeof t.date === 'string' ? parseISO(t.date) : t.date) : new Date(),
+        .map(i => ({
+          ...i,
+          date: i.date ? (typeof i.date === 'string' ? parseISO(i.date) : i.date) : new Date(),
         }))
         .sort((a, b) => {
-          const dateA = a.date instanceof Date ? a.date : parseISO(a.date);
-          const dateB = b.date instanceof Date ? b.date : parseISO(b.date);
-          return dateB - dateA; // Azalan sıra
+          const tarihA = a.date instanceof Date ? a.date : parseISO(a.date);
+          const tarihB = b.date instanceof Date ? b.date : parseISO(b.date);
+          return tarihB - tarihA; // Azalan sıra
         });
       
-      return { success: true, transactions: userTransactions };
-    } catch (error) {
-      return { success: false, error: error.message, transactions: [] };
+      return { success: true, transactions: kullaniciIslemleri };
+    } catch (hata) {
+      return { success: false, error: hata.message, transactions: [] };
     }
   },
 
-  // Aylık özet hesapla
-  calculateMonthlySummary: (transactions) => {
-    let totalIncome = 0;
-    let totalExpense = 0;
-    const categoryExpenses = {};
+  /**
+   * Aylık finansal özeti hesaplar
+   * @param {Array} islemler - Hesaplanacak işlem listesi
+   * @returns {Object} Özet bilgileri (toplam gelir, toplam gider, bakiye, kategori giderleri)
+   */
+  aylikOzetiHesapla: (islemler) => {
+    let toplamGelir = 0;
+    let toplamGider = 0;
+    const kategoriGiderleri = {};
 
-    transactions.forEach((transaction) => {
+    islemler.forEach((islem) => {
       // Tutarın sayı olduğundan emin ol
-      const amount = typeof transaction.amount === 'number' 
-        ? transaction.amount 
-        : parseFloat(transaction.amount) || 0;
+      const tutar = typeof islem.amount === 'number' 
+        ? islem.amount 
+        : parseFloat(islem.amount) || 0;
 
-      if (transaction.type === 'income') {
-        totalIncome += amount;
-      } else if (transaction.type === 'expense') {
-        totalExpense += amount;
+      if (islem.type === 'income') {
+        toplamGelir += tutar;
+      } else if (islem.type === 'expense') {
+        toplamGider += tutar;
         
-        if (transaction.category) {
-          categoryExpenses[transaction.category] = 
-            (categoryExpenses[transaction.category] || 0) + amount;
+        if (islem.category) {
+          kategoriGiderleri[islem.category] = 
+            (kategoriGiderleri[islem.category] || 0) + tutar;
         }
       }
     });
 
-    const balance = totalIncome - totalExpense;
+    const bakiye = toplamGelir - toplamGider;
 
     return {
-      totalIncome: Number(totalIncome.toFixed(2)),
-      totalExpense: Number(totalExpense.toFixed(2)),
-      balance: Number(balance.toFixed(2)),
-      categoryExpenses,
+      totalIncome: Number(toplamGelir.toFixed(2)),
+      totalExpense: Number(toplamGider.toFixed(2)),
+      balance: Number(bakiye.toFixed(2)),
+      categoryExpenses: kategoriGiderleri,
     };
   }
 };

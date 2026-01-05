@@ -1,58 +1,88 @@
+/**
+ * Kimlik Doğrulama Context
+ * Uygulama genelinde kullanıcı kimlik doğrulama durumunu yönetir
+ */
+
 import React, { createContext, useState, useEffect } from 'react';
-import { authService } from '../services/authService';
+import { kimlikDogrulamaServisi } from '../services/authService';
 
-export const AuthContext = createContext();
+export const KimlikDogrulamaContext = createContext();
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+/**
+ * Kimlik Doğrulama Provider Bileşeni
+ * Tüm uygulamayı kimlik doğrulama durumu ile sarar
+ */
+export const KimlikDogrulamaProvider = ({ children }) => {
+  // Kullanıcı durumu
+  const [kullanici, setKullanici] = useState(null);
+  // Yükleme durumu
+  const [yukleniyor, setYukleniyor] = useState(true);
 
   useEffect(() => {
-    // Yükleme sırasında mevcut kullanıcıyı kontrol et
-    const checkUser = async () => {
-      const currentUser = await authService.getCurrentUser();
-      setUser(currentUser);
-      setLoading(false);
+    /**
+     * Yükleme sırasında mevcut kullanıcıyı kontrol eden fonksiyon
+     */
+    const kullaniciyiKontrolEt = async () => {
+      const mevcutKullanici = await kimlikDogrulamaServisi.mevcutKullaniciiGetir();
+      setKullanici(mevcutKullanici);
+      setYukleniyor(false);
     };
 
-    checkUser();
+    kullaniciyiKontrolEt();
 
-    // Auth state değişikliklerini dinle
-    const unsubscribe = authService.onAuthStateChange((user) => {
-      setUser(user);
-      setLoading(false);
+    // Kimlik durumu değişikliklerini dinle
+    const aboneligiIptalEt = kimlikDogrulamaServisi.kimlikDurumuDegisikliginiDinle((kullanici) => {
+      setKullanici(kullanici);
+      setYukleniyor(false);
     });
 
-    return unsubscribe;
+    return aboneligiIptalEt;
   }, []);
 
-  const register = async (email, password, displayName) => {
-    const result = await authService.register(email, password, displayName);
-    if (result.success) {
-      setUser(result.user);
+  /**
+   * Yeni kullanıcı kaydı oluşturur
+   * @param {string} eposta - Kullanıcı e-posta adresi
+   * @param {string} sifre - Kullanıcı şifresi
+   * @param {string} gorunenIsim - Kullanıcı görünen adı
+   * @returns {Promise<Object>} İşlem sonucu
+   */
+  const kayitOl = async (eposta, sifre, gorunenIsim) => {
+    const sonuc = await kimlikDogrulamaServisi.kayitOl(eposta, sifre, gorunenIsim);
+    if (sonuc.success) {
+      setKullanici(sonuc.user);
     }
-    return result;
+    return sonuc;
   };
 
-  const login = async (email, password) => {
-    const result = await authService.login(email, password);
-    if (result.success) {
-      setUser(result.user);
+  /**
+   * Kullanıcı girişi yapar
+   * @param {string} eposta - Kullanıcı e-posta adresi
+   * @param {string} sifre - Kullanıcı şifresi
+   * @returns {Promise<Object>} İşlem sonucu
+   */
+  const girisYap = async (eposta, sifre) => {
+    const sonuc = await kimlikDogrulamaServisi.girisYap(eposta, sifre);
+    if (sonuc.success) {
+      setKullanici(sonuc.user);
     }
-    return result;
+    return sonuc;
   };
 
-  const logout = async () => {
-    const result = await authService.logout();
-    if (result.success) {
-      setUser(null);
+  /**
+   * Kullanıcı çıkışı yapar
+   * @returns {Promise<Object>} İşlem sonucu
+   */
+  const cikisYap = async () => {
+    const sonuc = await kimlikDogrulamaServisi.cikisYap();
+    if (sonuc.success) {
+      setKullanici(null);
     }
-    return result;
+    return sonuc;
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout, setUser }}>
+    <KimlikDogrulamaContext.Provider value={{ kullanici, yukleniyor, kayitOl, girisYap, cikisYap, setKullanici }}>
       {children}
-    </AuthContext.Provider>
+    </KimlikDogrulamaContext.Provider>
   );
 };

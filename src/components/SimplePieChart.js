@@ -1,84 +1,103 @@
+/**
+ * Basit Pasta Grafik Bileşeni
+ * Kategori giderlerini pasta grafik olarak gösterir
+ */
+
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Path, G } from 'react-native-svg';
 import { colors, spacing, typography } from '../constants/theme';
 
 const { width } = Dimensions.get('window');
-const CHART_SIZE = Math.min(width - spacing.lg * 4, 280);
-const CENTER_X = CHART_SIZE / 2;
-const CENTER_Y = CHART_SIZE / 2;
-const RADIUS = (CHART_SIZE - 40) / 2;
+const GRAFIK_BOYUTU = Math.min(width - spacing.lg * 4, 280);
+const MERKEZ_X = GRAFIK_BOYUTU / 2;
+const MERKEZ_Y = GRAFIK_BOYUTU / 2;
+const YARICAP = (GRAFIK_BOYUTU - 40) / 2;
 
-const SimplePieChart = ({ data }) => {
+const BasitPastaGrafik = ({ data }) => {
+  // Veri kontrolü
   if (!data || data.length === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Veri bulunamadı</Text>
+      <View style={styles.bosKonteyner}>
+        <Text style={styles.bosMetin}>Veri bulunamadı</Text>
       </View>
     );
   }
 
-  // Toplamı hesapla
-  const total = data.reduce((sum, item) => {
-    const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount) || 0;
-    return sum + amount;
+  /**
+   * Toplam tutarı hesaplar
+   */
+  const toplam = data.reduce((toplam, oge) => {
+    const tutar = typeof oge.amount === 'number' ? oge.amount : parseFloat(oge.amount) || 0;
+    return toplam + tutar;
   }, 0);
   
-  if (total === 0) {
+  if (toplam === 0) {
     return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Veri bulunamadı</Text>
+      <View style={styles.bosKonteyner}>
+        <Text style={styles.bosMetin}>Veri bulunamadı</Text>
       </View>
     );
   }
 
-  // Açıyı radyana çevir
-  const toRadians = (angle) => (angle * Math.PI) / 180;
+  /**
+   * Açıyı radyana çevirir
+   * @param {number} aci - Derece cinsinden açı
+   * @returns {number} Radyan cinsinden açı
+   */
+  const radyanaCevir = (aci) => (aci * Math.PI) / 180;
 
-  // Pasta dilimi için yol oluştur
-  const createArcPath = (startAngle, endAngle) => {
-    const startAngleRad = toRadians(startAngle);
-    const endAngleRad = toRadians(endAngle);
+  /**
+   * Pasta dilimi için SVG yol oluşturur
+   * @param {number} baslangicAci - Başlangıç açısı (derece)
+   * @param {number} bitisAci - Bitiş açısı (derece)
+   * @returns {string} SVG path verisi
+   */
+  const yayYoluOlustur = (baslangicAci, bitisAci) => {
+    const baslangicAciRad = radyanaCevir(baslangicAci);
+    const bitisAciRad = radyanaCevir(bitisAci);
     
-    const x1 = CENTER_X + RADIUS * Math.cos(startAngleRad);
-    const y1 = CENTER_Y + RADIUS * Math.sin(startAngleRad);
-    const x2 = CENTER_X + RADIUS * Math.cos(endAngleRad);
-    const y2 = CENTER_Y + RADIUS * Math.sin(endAngleRad);
+    const x1 = MERKEZ_X + YARICAP * Math.cos(baslangicAciRad);
+    const y1 = MERKEZ_Y + YARICAP * Math.sin(baslangicAciRad);
+    const x2 = MERKEZ_X + YARICAP * Math.cos(bitisAciRad);
+    const y2 = MERKEZ_Y + YARICAP * Math.sin(bitisAciRad);
     
-    const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+    const buyukYayBayragi = bitisAci - baslangicAci > 180 ? 1 : 0;
     
-    return `M ${CENTER_X} ${CENTER_Y} L ${x1} ${y1} A ${RADIUS} ${RADIUS} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+    return `M ${MERKEZ_X} ${MERKEZ_Y} L ${x1} ${y1} A ${YARICAP} ${YARICAP} 0 ${buyukYayBayragi} 1 ${x2} ${y2} Z`;
   };
   
-  // Açılarla segmentleri hesapla
-  let currentAngle = -90; // Üstten başla
-  const segments = data.map((item) => {
-    const amount = typeof item.amount === 'number' ? item.amount : parseFloat(item.amount) || 0;
-    const percentage = amount / total;
-    const angle = percentage * 360;
-    const startAngle = currentAngle;
-    const endAngle = currentAngle + angle;
-    currentAngle = endAngle;
+  /**
+   * Açılarla segmentleri hesaplar
+   */
+  let mevcutAci = -90; // Üstten başla
+  const segmentler = data.map((oge) => {
+    const tutar = typeof oge.amount === 'number' ? oge.amount : parseFloat(oge.amount) || 0;
+    const yuzde = tutar / toplam;
+    const aci = yuzde * 360;
+    const baslangicAci = mevcutAci;
+    const bitisAci = mevcutAci + aci;
+    mevcutAci = bitisAci;
 
     return {
-      ...item,
-      amount,
-      percentage: (percentage * 100).toFixed(1),
-      startAngle,
-      endAngle,
-      path: createArcPath(startAngle, endAngle),
+      ...oge,
+      amount: tutar,
+      percentage: (yuzde * 100).toFixed(1),
+      baslangicAci,
+      bitisAci,
+      yol: yayYoluOlustur(baslangicAci, bitisAci),
     };
   });
 
   return (
-    <View style={styles.container}>
-      <View style={styles.chartWrapper}>
-        <Svg width={CHART_SIZE} height={CHART_SIZE} viewBox={`0 0 ${CHART_SIZE} ${CHART_SIZE}`}>
+    <View style={styles.konteyner}>
+      <View style={styles.grafikSarayici}>
+        <Svg width={GRAFIK_BOYUTU} height={GRAFIK_BOYUTU} viewBox={`0 0 ${GRAFIK_BOYUTU} ${GRAFIK_BOYUTU}`}>
           <G>
-            {segments.map((segment, index) => (
+            {segmentler.map((segment, indeks) => (
               <Path
-                key={index}
-                d={segment.path}
+                key={indeks}
+                d={segment.yol}
                 fill={segment.color}
                 opacity={0.85}
                 stroke={colors.surface}
@@ -90,15 +109,15 @@ const SimplePieChart = ({ data }) => {
       </View>
       
       {/* Açıklama */}
-      <View style={styles.legend}>
-        {segments.map((segment, index) => (
-          <View key={index} style={styles.legendItem}>
-            <View style={[styles.legendColor, { backgroundColor: segment.color }]} />
-            <View style={styles.legendTextContainer}>
-              <Text style={styles.legendName}>{segment.name}</Text>
-              <Text style={styles.legendPercentage}>{segment.percentage}%</Text>
+      <View style={styles.aciklama}>
+        {segmentler.map((segment, indeks) => (
+          <View key={indeks} style={styles.aciklamaOgesi}>
+            <View style={[styles.aciklamaRenk, { backgroundColor: segment.color }]} />
+            <View style={styles.aciklamaMetinKonteyner}>
+              <Text style={styles.aciklamaIsim}>{segment.name}</Text>
+              <Text style={styles.aciklamaYuzde}>{segment.percentage}%</Text>
             </View>
-            <Text style={styles.legendAmount}>
+            <Text style={styles.aciklamaTutar}>
               {new Intl.NumberFormat('tr-TR', {
                 style: 'currency',
                 currency: 'TRY',
@@ -113,59 +132,59 @@ const SimplePieChart = ({ data }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  konteyner: {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
   },
-  chartWrapper: {
+  grafikSarayici: {
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
-    width: CHART_SIZE,
-    height: CHART_SIZE,
+    width: GRAFIK_BOYUTU,
+    height: GRAFIK_BOYUTU,
   },
-  emptyContainer: {
+  bosKonteyner: {
     padding: spacing.xl,
     alignItems: 'center',
   },
-  emptyText: {
+  bosMetin: {
     ...typography.body,
     color: colors.textSecondary,
   },
-  legend: {
+  aciklama: {
     width: '100%',
     marginTop: spacing.md,
   },
-  legendItem: {
+  aciklamaOgesi: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  legendColor: {
+  aciklamaRenk: {
     width: 20,
     height: 20,
     borderRadius: 10,
     marginRight: spacing.sm,
   },
-  legendTextContainer: {
+  aciklamaMetinKonteyner: {
     flex: 1,
   },
-  legendName: {
+  aciklamaIsim: {
     ...typography.body,
     fontWeight: '600',
     color: colors.text,
   },
-  legendPercentage: {
+  aciklamaYuzde: {
     ...typography.caption,
     color: colors.textSecondary,
   },
-  legendAmount: {
+  aciklamaTutar: {
     ...typography.body,
     fontWeight: '600',
     color: colors.text,
   },
 });
 
-export default SimplePieChart;
+export default BasitPastaGrafik;

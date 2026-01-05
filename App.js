@@ -1,19 +1,28 @@
+/**
+ * Ana Uygulama Bileşeni
+ * Uygulamanın giriş noktası - Tüm sağlayıcıları ve navigasyonu başlatır
+ */
+
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import AppNavigator from './src/navigation/AppNavigator';
-import { AuthProvider } from './src/context/AuthContext';
+import UygulamaNavigatoru from './src/navigation/AppNavigator';
+import { KimlikDogrulamaProvider } from './src/context/AuthContext';
 
-export default function App() {
+/**
+ * Ana Uygulama Fonksiyonu
+ * @returns {JSX.Element} Uygulama bileşeni
+ */
+export default function Uygulama() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
+      <KimlikDogrulamaProvider>
         <NavigationContainer>
           <StatusBar style="auto" />
-          <AppNavigator />
+          <UygulamaNavigatoru />
         </NavigationContainer>
-      </AuthProvider>
+      </KimlikDogrulamaProvider>
     </SafeAreaProvider>
   );
 }

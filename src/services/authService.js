@@ -1,219 +1,278 @@
+/**
+ * Kimlik Doğrulama Servisi
+ * Kullanıcı kaydı, girişi, çıkışı ve profil yönetimi işlemlerini yönetir
+ */
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const USERS_KEY = '@users';
-const CURRENT_USER_KEY = '@currentUser';
+// AsyncStorage anahtarları
+const KULLANICILAR_ANAHTARI = '@users';
+const MEVCUT_KULLANICI_ANAHTARI = '@currentUser';
 
-// Tüm kullanıcıları getiren yardımcı fonksiyon
-const getAllUsers = async () => {
+/**
+ * Tüm kullanıcıları AsyncStorage'dan getiren yardımcı fonksiyon
+ * @returns {Promise<Array>} Kullanıcı listesi
+ */
+const tumKullanicilariGetir = async () => {
   try {
-    const data = await AsyncStorage.getItem(USERS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (error) {
-    console.error('Kullanıcılar alınırken hata:', error);
+    const veri = await AsyncStorage.getItem(KULLANICILAR_ANAHTARI);
+    return veri ? JSON.parse(veri) : [];
+  } catch (hata) {
+    console.error('Kullanıcılar alınırken hata:', hata);
     return [];
   }
 };
 
-// Tüm kullanıcıları kaydeden yardımcı fonksiyon
-const saveAllUsers = async (users) => {
+/**
+ * Tüm kullanıcıları AsyncStorage'a kaydeden yardımcı fonksiyon
+ * @param {Array} kullanicilar - Kaydedilecek kullanıcı listesi
+ * @returns {Promise<boolean>} İşlem başarılı mı?
+ */
+const tumKullanicilariKaydet = async (kullanicilar) => {
   try {
-    await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
+    await AsyncStorage.setItem(KULLANICILAR_ANAHTARI, JSON.stringify(kullanicilar));
     return true;
-  } catch (error) {
-    console.error('Kullanıcılar kaydedilirken hata:', error);
+  } catch (hata) {
+    console.error('Kullanıcılar kaydedilirken hata:', hata);
     return false;
   }
 };
 
-// Mevcut kullanıcıyı getiren yardımcı fonksiyon
-const getCurrentUser = async () => {
+/**
+ * Mevcut kullanıcıyı AsyncStorage'dan getiren yardımcı fonksiyon
+ * @returns {Promise<Object|null>} Mevcut kullanıcı bilgisi
+ */
+const mevcutKullaniciiGetir = async () => {
   try {
-    const data = await AsyncStorage.getItem(CURRENT_USER_KEY);
-    return data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error('Mevcut kullanıcı alınırken hata:', error);
+    const veri = await AsyncStorage.getItem(MEVCUT_KULLANICI_ANAHTARI);
+    return veri ? JSON.parse(veri) : null;
+  } catch (hata) {
+    console.error('Mevcut kullanıcı alınırken hata:', hata);
     return null;
   }
 };
 
-// Mevcut kullanıcıyı kaydeden yardımcı fonksiyon
-const saveCurrentUser = async (user) => {
+/**
+ * Mevcut kullanıcıyı AsyncStorage'a kaydeden yardımcı fonksiyon
+ * @param {Object|null} kullanici - Kaydedilecek kullanıcı bilgisi (null ise silinir)
+ * @returns {Promise<boolean>} İşlem başarılı mı?
+ */
+const mevcutKullaniciiKaydet = async (kullanici) => {
   try {
-    if (user) {
-      await AsyncStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+    if (kullanici) {
+      await AsyncStorage.setItem(MEVCUT_KULLANICI_ANAHTARI, JSON.stringify(kullanici));
     } else {
-      await AsyncStorage.removeItem(CURRENT_USER_KEY);
+      await AsyncStorage.removeItem(MEVCUT_KULLANICI_ANAHTARI);
     }
     return true;
-  } catch (error) {
-    console.error('Mevcut kullanıcı kaydedilirken hata:', error);
+  } catch (hata) {
+    console.error('Mevcut kullanıcı kaydedilirken hata:', hata);
     return false;
   }
 };
 
-export const authService = {
-  // Kullanıcı kaydı
-  register: async (email, password, displayName) => {
+/**
+ * Kimlik Doğrulama Servisi Objesi
+ * Tüm kimlik doğrulama işlemlerini içeren servis
+ */
+export const kimlikDogrulamaServisi = {
+  /**
+   * Yeni kullanıcı kaydı oluşturur
+   * @param {string} eposta - Kullanıcı e-posta adresi
+   * @param {string} sifre - Kullanıcı şifresi
+   * @param {string} gorunenIsim - Kullanıcı görünen adı
+   * @returns {Promise<Object>} İşlem sonucu ve kullanıcı bilgisi
+   */
+  kayitOl: async (eposta, sifre, gorunenIsim) => {
     try {
-      const users = await getAllUsers();
+      const kullanicilar = await tumKullanicilariGetir();
       
       // Kullanıcının zaten var olup olmadığını kontrol et
-      const existingUser = users.find(u => u.email === email);
-      if (existingUser) {
+      const mevcutKullanici = kullanicilar.find(k => k.email === eposta);
+      if (mevcutKullanici) {
         return { success: false, error: 'Bu e-posta adresi zaten kullanılıyor' };
       }
       
       // Yeni kullanıcı oluştur
-      const newUser = {
+      const yeniKullanici = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        email,
-        password, // Üretimde şifrelenmeli
-        displayName,
+        email: eposta,
+        password: sifre, // Üretimde şifrelenmeli
+        displayName: gorunenIsim,
         createdAt: new Date().toISOString(),
       };
       
-      users.push(newUser);
-      const saved = await saveAllUsers(users);
+      kullanicilar.push(yeniKullanici);
+      const kaydedildi = await tumKullanicilariKaydet(kullanicilar);
       
-      if (saved) {
+      if (kaydedildi) {
         // Mevcut kullanıcı olarak ayarla
-        await saveCurrentUser(newUser);
-        return { success: true, user: newUser };
+        await mevcutKullaniciiKaydet(yeniKullanici);
+        return { success: true, user: yeniKullanici };
       } else {
         return { success: false, error: 'Kullanıcı kaydedilemedi' };
       }
-    } catch (error) {
-      return { success: false, error: error.message };
+    } catch (hata) {
+      return { success: false, error: hata.message };
     }
   },
 
-  // Kullanıcı girişi
-  login: async (email, password) => {
+  /**
+   * Kullanıcı girişi yapar
+   * @param {string} eposta - Kullanıcı e-posta adresi
+   * @param {string} sifre - Kullanıcı şifresi
+   * @returns {Promise<Object>} İşlem sonucu ve kullanıcı bilgisi
+   */
+  girisYap: async (eposta, sifre) => {
     try {
-      const users = await getAllUsers();
-      const user = users.find(u => u.email === email && u.password === password);
+      const kullanicilar = await tumKullanicilariGetir();
+      const kullanici = kullanicilar.find(k => k.email === eposta && k.password === sifre);
       
-      if (!user) {
+      if (!kullanici) {
         return { success: false, error: 'E-posta veya şifre hatalı' };
       }
       
       // Mevcut kullanıcı olarak ayarla
-      await saveCurrentUser(user);
-      return { success: true, user };
-    } catch (error) {
-      return { success: false, error: error.message };
+      await mevcutKullaniciiKaydet(kullanici);
+      return { success: true, user: kullanici };
+    } catch (hata) {
+      return { success: false, error: hata.message };
     }
   },
 
-  // Kullanıcı çıkışı
-  logout: async () => {
+  /**
+   * Kullanıcı çıkışı yapar
+   * @returns {Promise<Object>} İşlem sonucu
+   */
+  cikisYap: async () => {
     try {
-      await saveCurrentUser(null);
+      await mevcutKullaniciiKaydet(null);
       return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
+    } catch (hata) {
+      return { success: false, error: hata.message };
     }
   },
 
-  // Auth state listener (simüle edilmiş)
-  onAuthStateChange: (callback) => {
+  /**
+   * Kimlik doğrulama durumu değişikliklerini dinler (simüle edilmiş)
+   * @param {Function} geriCagirma - Durum değiştiğinde çağrılacak fonksiyon
+   * @returns {Function} Abonelik iptal fonksiyonu
+   */
+  kimlikDurumuDegisikliginiDinle: (geriCagirma) => {
     // Mevcut kullanıcıyı hemen kontrol et
-    getCurrentUser().then(user => {
-      callback(user);
+    mevcutKullaniciiGetir().then(kullanici => {
+      geriCagirma(kullanici);
     });
     
     // Abone olmayı iptal eden fonksiyon döndür (yerel depolama için no-op)
     return () => {};
   },
 
-  // Mevcut kullanıcıyı al
-  getCurrentUser: async () => {
-    return await getCurrentUser();
+  /**
+   * Mevcut kullanıcıyı getirir
+   * @returns {Promise<Object|null>} Mevcut kullanıcı bilgisi
+   */
+  mevcutKullaniciiGetir: async () => {
+    return await mevcutKullaniciiGetir();
   },
 
-  // Mevcut kullanıcıyı senkron olarak al (anında erişim için)
-  getCurrentUserSync: () => {
+  /**
+   * Mevcut kullanıcıyı senkron olarak getirir (anında erişim için)
+   * @returns {Object|null} Mevcut kullanıcı bilgisi (AuthContext tarafından yönetilir)
+   */
+  mevcutKullaniciiSenkronGetir: () => {
     // Bu AuthContext tarafından yönetilecek
     return null;
   },
 
-  // Profil bilgilerini güncelle
-  updateProfile: async (userId, updates) => {
+  /**
+   * Profil bilgilerini günceller
+   * @param {string} kullaniciId - Güncellenecek kullanıcı ID'si
+   * @param {Object} guncellemeler - Güncellenecek alanlar
+   * @returns {Promise<Object>} İşlem sonucu ve güncellenmiş kullanıcı bilgisi
+   */
+  profiliGuncelle: async (kullaniciId, guncellemeler) => {
     try {
-      const users = await getAllUsers();
-      const userIndex = users.findIndex(u => u.id === userId);
+      const kullanicilar = await tumKullanicilariGetir();
+      const kullaniciIndeksi = kullanicilar.findIndex(k => k.id === kullaniciId);
       
-      if (userIndex === -1) {
+      if (kullaniciIndeksi === -1) {
         return { success: false, error: 'Kullanıcı bulunamadı' };
       }
       
       // Kullanıcı verilerini güncelle
-      users[userIndex] = {
-        ...users[userIndex],
-        ...updates,
+      kullanicilar[kullaniciIndeksi] = {
+        ...kullanicilar[kullaniciIndeksi],
+        ...guncellemeler,
         updatedAt: new Date().toISOString(),
       };
       
-      const saved = await saveAllUsers(users);
+      const kaydedildi = await tumKullanicilariKaydet(kullanicilar);
       
-      if (saved) {
+      if (kaydedildi) {
         // Aynı kullanıcıysa mevcut kullanıcıyı güncelle
-        const currentUser = await getCurrentUser();
-        if (currentUser && currentUser.id === userId) {
-          await saveCurrentUser(users[userIndex]);
+        const mevcutKullanici = await mevcutKullaniciiGetir();
+        if (mevcutKullanici && mevcutKullanici.id === kullaniciId) {
+          await mevcutKullaniciiKaydet(kullanicilar[kullaniciIndeksi]);
         }
-        return { success: true, user: users[userIndex] };
+        return { basarili: true, kullanici: kullanicilar[kullaniciIndeksi] };
       } else {
         return { success: false, error: 'Profil güncellenemedi' };
       }
-    } catch (error) {
-      return { success: false, error: error.message };
+    } catch (hata) {
+      return { success: false, error: hata.message };
     }
   },
 
-  // Şifre değiştir
-  changePassword: async (userId, currentPassword, newPassword) => {
+  /**
+   * Kullanıcı şifresini değiştirir
+   * @param {string} kullaniciId - Şifresi değiştirilecek kullanıcı ID'si
+   * @param {string} mevcutSifre - Mevcut şifre
+   * @param {string} yeniSifre - Yeni şifre
+   * @returns {Promise<Object>} İşlem sonucu
+   */
+  sifreDegistir: async (kullaniciId, mevcutSifre, yeniSifre) => {
     try {
-      const users = await getAllUsers();
-      const userIndex = users.findIndex(u => u.id === userId);
+      const kullanicilar = await tumKullanicilariGetir();
+      const kullaniciIndeksi = kullanicilar.findIndex(k => k.id === kullaniciId);
       
-      if (userIndex === -1) {
+      if (kullaniciIndeksi === -1) {
         return { success: false, error: 'Kullanıcı bulunamadı' };
       }
       
-      const user = users[userIndex];
+      const kullanici = kullanicilar[kullaniciIndeksi];
       
       // Mevcut şifreyi kontrol et
-      if (user.password !== currentPassword) {
+      if (kullanici.password !== mevcutSifre) {
         return { success: false, error: 'Mevcut şifre hatalı' };
       }
       
       // Yeni şifreyi doğrula
-      if (!newPassword || newPassword.length < 6) {
+      if (!yeniSifre || yeniSifre.length < 6) {
         return { success: false, error: 'Yeni şifre en az 6 karakter olmalıdır' };
       }
       
       // Şifreyi güncelle
-      users[userIndex] = {
-        ...users[userIndex],
-        password: newPassword,
+      kullanicilar[kullaniciIndeksi] = {
+        ...kullanicilar[kullaniciIndeksi],
+        password: yeniSifre,
         updatedAt: new Date().toISOString(),
       };
       
-      const saved = await saveAllUsers(users);
+      const kaydedildi = await tumKullanicilariKaydet(kullanicilar);
       
-      if (saved) {
+      if (kaydedildi) {
         // Aynı kullanıcıysa mevcut kullanıcıyı güncelle
-        const currentUser = await getCurrentUser();
-        if (currentUser && currentUser.id === userId) {
-          await saveCurrentUser(users[userIndex]);
+        const mevcutKullanici = await mevcutKullaniciiGetir();
+        if (mevcutKullanici && mevcutKullanici.id === kullaniciId) {
+          await mevcutKullaniciiKaydet(kullanicilar[kullaniciIndeksi]);
         }
         return { success: true };
       } else {
         return { success: false, error: 'Şifre güncellenemedi' };
       }
-    } catch (error) {
-      return { success: false, error: error.message };
+    } catch (hata) {
+      return { success: false, error: hata.message };
     }
   }
 };

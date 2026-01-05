@@ -1,3 +1,8 @@
+/**
+ * Ana Sayfa Ekranı Bileşeni
+ * Kullanıcının finansal özetini ve son işlemlerini gösterir
+ */
+
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -8,159 +13,180 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { AuthContext } from '../../context/AuthContext';
-import { transactionService } from '../../services/transactionService';
-import { categoryService } from '../../services/categoryService';
-import SummaryCard from '../../components/SummaryCard';
-import TransactionCard from '../../components/TransactionCard';
+import { KimlikDogrulamaContext } from '../../context/AuthContext';
+import { islemServisi } from '../../services/transactionService';
+import { kategoriServisi } from '../../services/categoryService';
+import OzetKarti from '../../components/SummaryCard';
+import IslemKarti from '../../components/TransactionCard';
 import { colors, spacing, typography } from '../../constants/theme';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { Ionicons } from '@expo/vector-icons';
 
-const DashboardScreen = ({ navigation }) => {
-  const { user } = useContext(AuthContext);
-  const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [summary, setSummary] = useState({
+const AnaSayfaEkrani = ({ navigation }) => {
+  // Context'ten kullanıcı bilgisini al
+  const { kullanici } = useContext(KimlikDogrulamaContext);
+  
+  // State'ler
+  const [islemler, setIslemler] = useState([]);
+  const [kategoriler, setKategoriler] = useState([]);
+  const [ozet, setOzet] = useState({
     totalIncome: 0,
     totalExpense: 0,
     balance: 0,
   });
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [yukleniyor, setYukleniyor] = useState(true);
+  const [yenileniyor, setYenileniyor] = useState(false);
 
-  const currentDate = new Date();
-  const currentMonth = format(currentDate, 'MMMM yyyy', { locale: tr });
+  // Mevcut tarih ve ay bilgisi
+  const mevcutTarih = new Date();
+  const mevcutAy = format(mevcutTarih, 'MMMM yyyy', { locale: tr });
 
-  const loadData = useCallback(async () => {
-    if (!user) return;
+  /**
+   * Verileri yükleyen fonksiyon
+   * Kategorileri ve işlemleri getirir, özeti hesaplar
+   */
+  const verileriYukle = useCallback(async () => {
+    if (!kullanici) return;
 
-    setLoading(true);
+    setYukleniyor(true);
     try {
-      const today = new Date();
+      const bugun = new Date();
       
       // Kategorileri yükle
-      const categoriesResult = await categoryService.getUserCategories(user.id);
-      if (categoriesResult.success) {
-        setCategories(categoriesResult.categories);
+      const kategorilerSonucu = await kategoriServisi.kullanicininKategorileriniGetir(kullanici.id);
+      if (kategorilerSonucu.success) {
+        setKategoriler(kategorilerSonucu.categories);
       }
 
       // İşlemleri yükle
-      const transactionsResult = await transactionService.getMonthlyTransactions(
-        user.id,
-        today
+      const islemlerSonucu = await islemServisi.aylikIslemleriGetir(
+        kullanici.id,
+        bugun
       );
-      if (transactionsResult.success) {
-        setTransactions(transactionsResult.transactions);
+      if (islemlerSonucu.success) {
+        setIslemler(islemlerSonucu.transactions);
         
         // Özeti hesapla
-        const monthlySummary = transactionService.calculateMonthlySummary(
-          transactionsResult.transactions
+        const aylikOzet = islemServisi.aylikOzetiHesapla(
+          islemlerSonucu.transactions
         );
         
         // Özet state'ini açık değerlerle güncelle
-        setSummary({
-          totalIncome: monthlySummary.totalIncome || 0,
-          totalExpense: monthlySummary.totalExpense || 0,
-          balance: monthlySummary.balance || 0,
+        setOzet({
+          totalIncome: aylikOzet.totalIncome || 0,
+          totalExpense: aylikOzet.totalExpense || 0,
+          balance: aylikOzet.balance || 0,
         });
       }
-    } catch (error) {
-      console.error('Veri yükleme hatası:', error);
+    } catch (hata) {
+      console.error('Veri yükleme hatası:', hata);
     } finally {
-      setLoading(false);
+      setYukleniyor(false);
     }
-  }, [user]);
+  }, [kullanici]);
 
   // Ekran odaklandığında verileri yeniden yükle
   useFocusEffect(
     useCallback(() => {
-      if (user) {
-        loadData();
+      if (kullanici) {
+        verileriYukle();
       }
-    }, [user, loadData])
+    }, [kullanici, verileriYukle])
   );
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+  /**
+   * Yenileme işlemini gerçekleştiren fonksiyon
+   */
+  const yenile = async () => {
+    setYenileniyor(true);
+    await verileriYukle();
+    setYenileniyor(false);
   };
 
-  const handleDeleteTransaction = async (transactionId) => {
-    const result = await transactionService.deleteTransaction(transactionId);
-    if (result.success) {
-      await loadData();
+  /**
+   * İşlem silme işlemini gerçekleştiren fonksiyon
+   * @param {string} islemId - Silinecek işlem ID'si
+   */
+  const islemiSil = async (islemId) => {
+    const sonuc = await islemServisi.islemSil(islemId);
+    if (sonuc.success) {
+      await verileriYukle();
     }
   };
 
-  const getCategoryById = (categoryId) => {
-    return categoryService.getCategoryById(categoryId, categories);
+  /**
+   * Kategori ID'sine göre kategori bilgisini getiren fonksiyon
+   * @param {string} kategoriId - Aranacak kategori ID'si
+   * @returns {Object} Kategori bilgisi
+   */
+  const kategoriIdyeGoreGetir = (kategoriId) => {
+    return kategoriServisi.kategoriIdyeGoreGetir(kategoriId, kategoriler);
   };
 
-  const recentTransactions = transactions.slice(0, 10);
+  // Son 10 işlemi al
+  const sonIslemler = islemler.slice(0, 10);
 
   return (
     <ScrollView
-      style={styles.container}
+      style={styles.konteyner}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={yenileniyor} onRefresh={yenile} />
       }
     >
-      <View style={styles.header}>
-        <Text style={styles.monthText}>{currentMonth}</Text>
+      <View style={styles.baslikAlani}>
+        <Text style={styles.ayMetni}>{mevcutAy}</Text>
       </View>
 
-      <View style={styles.summarySection}>
-        <SummaryCard
-          key={`income-${summary.totalIncome}`}
-          title="Toplam Gelir"
-          amount={summary.totalIncome}
-          icon="arrow-down-circle"
-          color={colors.success}
+      <View style={styles.ozetBolumu}>
+        <OzetKarti
+          key={`income-${ozet.totalIncome}`}
+          baslik="Toplam Gelir"
+          tutar={ozet.totalIncome}
+          ikon="arrow-down-circle"
+          renk={colors.success}
         />
-        <SummaryCard
-          key={`expense-${summary.totalExpense}`}
-          title="Toplam Gider"
-          amount={summary.totalExpense}
-          icon="arrow-up-circle"
-          color={colors.error}
+        <OzetKarti
+          key={`expense-${ozet.totalExpense}`}
+          baslik="Toplam Gider"
+          tutar={ozet.totalExpense}
+          ikon="arrow-up-circle"
+          renk={colors.error}
         />
-        <SummaryCard
-          key={`balance-${summary.balance}`}
-          title="Kalan Bakiye"
-          amount={summary.balance}
-          icon="wallet"
-          color={summary.balance >= 0 ? colors.primary : colors.warning}
+        <OzetKarti
+          key={`balance-${ozet.balance}`}
+          baslik="Kalan Bakiye"
+          tutar={ozet.balance}
+          ikon="wallet"
+          renk={ozet.balance >= 0 ? colors.primary : colors.warning}
         />
       </View>
 
-      <View style={styles.transactionsSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Son İşlemler</Text>
+      <View style={styles.islemlerBolumu}>
+        <View style={styles.bolumBasligi}>
+          <Text style={styles.bolumBasligiMetni}>Son İşlemler</Text>
           <TouchableOpacity
             onPress={() => navigation.navigate('AddTransaction')}
-            style={styles.addButton}
+            style={styles.ekleButonu}
           >
             <Ionicons name="add-circle" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
-        {recentTransactions.length === 0 ? (
-          <View style={styles.emptyState}>
+        {sonIslemler.length === 0 ? (
+          <View style={styles.bosDurum}>
             <Ionicons name="document-text-outline" size={64} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>Henüz işlem bulunmuyor</Text>
-            <Text style={styles.emptySubtext}>Yeni işlem eklemek için + butonuna tıklayın</Text>
+            <Text style={styles.bosMetin}>Henüz işlem bulunmuyor</Text>
+            <Text style={styles.bosAltMetin}>Yeni işlem eklemek için + butonuna tıklayın</Text>
           </View>
         ) : (
-          recentTransactions.map((transaction) => (
-            <TransactionCard
-              key={transaction.id}
-              transaction={transaction}
-              category={getCategoryById(transaction.category)}
-              onPress={() => navigation.navigate('AddTransaction', { transaction })}
-              onDelete={handleDeleteTransaction}
+          sonIslemler.map((islem) => (
+            <IslemKarti
+              key={islem.id}
+              islem={islem}
+              kategori={kategoriIdyeGoreGetir(islem.category)}
+              tiklandiginda={() => navigation.navigate('AddTransaction', { transaction: islem })}
+              silindiginde={islemiSil}
             />
           ))
         )}
@@ -170,54 +196,54 @@ const DashboardScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  konteyner: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
+  baslikAlani: {
     padding: spacing.lg,
     paddingBottom: spacing.md,
   },
-  monthText: {
+  ayMetni: {
     ...typography.h2,
     color: colors.text,
   },
-  summarySection: {
+  ozetBolumu: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
-  transactionsSection: {
+  islemlerBolumu: {
     padding: spacing.lg,
   },
-  sectionHeader: {
+  bolumBasligi: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  sectionTitle: {
+  bolumBasligiMetni: {
     ...typography.h3,
     color: colors.text,
   },
-  addButton: {
+  ekleButonu: {
     padding: spacing.xs,
   },
-  emptyState: {
+  bosDurum: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xl * 2,
   },
-  emptyText: {
+  bosMetin: {
     ...typography.body,
     color: colors.textLight,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
-  emptySubtext: {
+  bosAltMetin: {
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
   },
 });
 
-export default DashboardScreen;
+export default AnaSayfaEkrani;
